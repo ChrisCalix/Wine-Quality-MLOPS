@@ -1,0 +1,4 @@
+# Herramientas de desarrollo y verificación.
+pytest
+httpx
+ruff

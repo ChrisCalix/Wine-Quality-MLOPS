@@ -15,4 +15,9 @@ Proyecto académico para construir un flujo reproducible de clasificación de vi
 2. Identifica tu rol y la primera tarea pendiente del bloque actual en `TASKS.md`.
 3. Comprueba sus dependencias y ejecuta la verificación indicada antes de marcarla como terminada.
 
+El proyecto fija Python `3.14.2` en `.python-version`. Las dependencias de
+ejecución están en `requirements.txt` y las de desarrollo en
+`requirements-dev.txt`; sus versiones exactas se generarán con `pip freeze`
+cuando el entorno pueda acceder al índice de paquetes.
+
 El desarrollo inicia con el esqueleto del repositorio y la documentación CRISP-DM. Los comandos de datos, entrenamiento y servicio se documentarán a medida que se implementen sus tareas.
