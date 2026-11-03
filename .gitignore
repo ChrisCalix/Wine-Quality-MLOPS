@@ -1,1 +1,19 @@
-docs/
+# Datos descargados y tracking local
+data/raw/
+mlruns/
+mlflow_data/
+
+# Entorno y cachés de Python
+.venv/
+__pycache__/
+*.py[cod]
+
+# Archivos del sistema
+.DS_Store
+
+# Documentos de planificación locales
+/AGENTS.md
+/CLAUDE.md
+/SPEC.md
+/PLAN.md
+/TASKS.md
