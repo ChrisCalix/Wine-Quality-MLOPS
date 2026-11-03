@@ -1,0 +1,11 @@
+# Dependencias de ejecución del servicio.
+# Las versiones se fijarán con pip freeze cuando el entorno tenga acceso al
+# índice de paquetes; no se inventan versiones fuera del entorno real.
+fastapi
+uvicorn
+pydantic
+mlflow
+scikit-learn
+pandas
+numpy
+matplotlib
