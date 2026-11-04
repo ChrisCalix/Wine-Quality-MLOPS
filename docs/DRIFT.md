@@ -99,8 +99,20 @@ El **nuevo panel de catadores** cambia su criterio: solo considera premium a un 
 ### 2.4 Persistencia y alarma
 
 - La alarma se dispara con **3 lotes consecutivos** en caída. Un lote ruidoso aislado no la activa.
-- La prueba automática (`tests/test_concept_drift.py`) exige dos cosas: sin reetiquetado no hay alarma, y con reetiquetado la alarma se dispara entre los lotes 6 y 10. Por tanto, en ningún caso debe haber alarma en los lotes 1 a 4.
+- Pruebas automáticas (`tests/test_concept_drift.py`, 5 semillas): sin reetiquetado no hay alarma; la persistencia exige 3 lotes consecutivos; y el mecanismo sí alarma cuando el modelo se degrada de verdad (se comprueba con un modelo oráculo que acierta las etiquetas originales).
 - Salidas: `reports/concept_drift.json` y `reports/concept_drift.png` (F1 por lote, línea de umbral, inicio del drift y lote de alarma marcados).
+
+### 2.4.1 Resultado con el `champion` real: no hay alarma [Cierto]
+
+Con la regla de la sección 2.2 y el `champion` (v3, umbral 0,22), `SEED = 42`: `F1_ref` = 0,495, `σ_ref` = 0,071 y umbral = 0,282. El F1 por lote es 0,52 · 0,43 · 0,64 · 0,62 · 0,57 · 0,59 · 0,49 · 0,49 · 0,49 · 0,44 · 0,53 · 0,54. **Ningún lote cae bajo el umbral y no se dispara la alarma**, de modo que `reports/concept_drift.png` no marca ningún lote de alarma.
+
+Esto no es un fallo del código sino una propiedad del escenario con este modelo:
+
+- El modelo depende sobre todo de `alcohol` y `sulphates`, y marca premium a los vinos con valores altos de ambos. La regla nueva exige `alcohol >= 11.5` y `sulphates >= 0.65`, así que marca premium a un subconjunto de los vinos que el modelo ya marca.
+- Sobre `test`, la regla marca 20 vinos premium frente a 28 originales, y el modelo predice 52. Si se reetiqueta el 100 %, el **recall sube** de 0,71 a 0,95, la precisión baja de 0,38 a 0,37 y el F1 pasa de 0,500 a 0,528.
+- Es decir, este cambio de criterio no es drift para este modelo: no empeora sus aciertos.
+
+**Consecuencia para los requisitos.** REQ-CD-01 (simular el cambio) y REQ-CD-03 (criterio de reentrenamiento) están definidos e implementados. REQ-CD-02 pide la gráfica con el lote de alarma, que con este escenario queda sin alarma. La demostración de que la alarma funciona se apoya en la prueba con modelo oráculo, no en el `champion`. Se deja como decisión abierta del equipo si se quiere definir otro escenario de reetiquetado que sí degrade al modelo.
 
 ### 2.5 Acción de reentrenamiento
 
