@@ -1,0 +1,22 @@
+{
+  "monitor_green": {
+    "premium_rate": 0.1324,
+    "rows": 204,
+    "sha256": "b135ee2dfd0a62b0af96e5bfb511846061836daa3314a7dd7b457a0df4e56ee8"
+  },
+  "monitor_red_white": {
+    "premium_rate": 0.204,
+    "rows": 500,
+    "sha256": "2a05970ec716ba2f5ce6cde09615373de2661515f79f19ff2d37981625c97498"
+  },
+  "test": {
+    "premium_rate": 0.1373,
+    "rows": 204,
+    "sha256": "72c432e533576741fb4a17f7709defc0f064096024d6bf05d65c61ca1579184c"
+  },
+  "train": {
+    "premium_rate": 0.1356,
+    "rows": 951,
+    "sha256": "b42174092209a4a270e82ad7a24d489a63c09e14d483025eae9c45f8b7cac12c"
+  }
+}
