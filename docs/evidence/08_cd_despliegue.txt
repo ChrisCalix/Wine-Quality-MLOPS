@@ -1,0 +1,21 @@
+# Evidencia del CD (T8.8): despliegue automático en el clúster local
+# Generado el 2026-11-04 16:18:03 contra el clúster docker-desktop
+# Ejecución: CD #2, https://github.com/ChrisCalix/Wine-Quality-MLOPS/actions/runs/41898496877
+
+$ git rev-parse origin/main   # commit que pasó el CI y disparó el CD
+d5c31dbe2d06cdff1030f3d6697893c96eda2df7
+
+$ kubectl -n wine-mlops get deploy wine-api -o jsonpath="{.spec.template.spec.containers[0].image}"
+ghcr.io/chriscalix/wine-quality-mlops:d5c31dbe2d06cdff1030f3d6697893c96eda2df7
+
+$ kubectl -n wine-mlops get deploy wine-api
+NAME       READY   UP-TO-DATE   AVAILABLE   AGE
+wine-api   2/2     2            2           3h19m
+
+$ kubectl -n wine-mlops get pods
+NAME                        READY   STATUS    RESTARTS   AGE
+wine-api-7866fd88f9-fpkwf   1/1     Running   0          38m
+wine-api-7866fd88f9-j9pzw   1/1     Running   0          40m
+
+$ curl -s http://localhost:8080/model-info
+{"model_name":"wine-premium-classifier","model_version":"3","model_alias":"champion","run_id":"1b53b6863eaa44078daf41aa54df3055","loaded_at":"2026-11-04T19:39:35.520052Z","served_by":"wine-api-7866fd88f9-fpkwf","decision_threshold":0.22}
