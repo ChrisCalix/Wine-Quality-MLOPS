@@ -40,3 +40,21 @@ La API necesita que el servidor responda antes de intentar resolver el alias `ch
 
 **¿Qué demuestra la prueba de Compose?**
 Que los contenedores responden `/ready` y `/predict` sin activar un entorno Python local, usando el modelo real versión 3.
+
+## Fase 6 — Kubernetes
+
+**¿Por qué el Service es `LoadBalancer` y no `NodePort`?**
+El Kubernetes de Docker Desktop usa nodos kind: contenedores en una red interna (172.18.0.0/16) que no se enruta desde macOS, así que `localhost:30080` no responde. Un `LoadBalancer` recibe IP externa y Docker Desktop lo publica en `localhost:8080`. El reparto entre pods lo sigue haciendo kube-proxy.
+
+**¿Cómo se demuestra el balanceo y por qué `Connection: close`?**
+Con 20 peticiones a `/predict` que devuelven `served_by`. Sin keep-alive cada petición abre una conexión nueva; si se reutilizara una sola, kube-proxy (que reparte por conexión) enviaría todo al mismo pod. El resultado fue 2 pods distintos, sin reparto exactamente parejo porque la elección es aleatoria.
+
+**¿Qué pasa cuando se borra un pod?**
+El ReplicaSet crea otro para volver al estado deseado. Sin fallos gracias a la readiness probe (solo recibe tráfico un pod con modelo cargado) y a `preStop: sleep 5` (el pod sale de los endpoints antes de cerrarse). La prueba registró 117 de 117 respuestas HTTP 200.
+
+**¿Qué hace cada probe?**
+`startupProbe` da hasta 150 s para cargar el modelo; `readinessProbe` (`/ready`) decide si recibe tráfico; `livenessProbe` (`/health`) reinicia el contenedor si se cuelga. Se subió el timeout a 5 s porque con 1 s fallaban bajo carga.
+
+**¿Por qué solo 2 réplicas y no más?**
+Cada réplica carga el modelo en memoria y Docker Desktop tiene 6 GB. Con 4 GB el plano de control de kind se reiniciaba. Dos réplicas bastan para demostrar balanceo y autorreparación; el escalado manual llega a 4 y el HPA llegará a 6.
+
