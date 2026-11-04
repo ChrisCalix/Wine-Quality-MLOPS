@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: wine-api-config
+  namespace: wine-mlops
+data:
+  MLFLOW_TRACKING_URI: http://host.docker.internal:5678
+  MODEL_URI: models:/wine-premium-classifier@champion
