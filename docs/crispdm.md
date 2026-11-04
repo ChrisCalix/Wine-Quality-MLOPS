@@ -1,6 +1,14 @@
 # CRISP-DM — Wine Quality MLOps
 
+Este documento sigue las seis fases de CRISP-DM. En cada fase se especifican el objetivo, los puntos de trabajo y los resultados que se completarán. Los resultados que dependen de ejecutar el análisis se dejan pendientes hasta contar con evidencia; no se sustituyen por cifras estimadas.
+
 ## 1. Comprensión del negocio
+
+**Objetivo:** definir la decisión de negocio que apoyará el modelo y cómo se medirá su utilidad.
+
+**Puntos de trabajo:** describir el problema de priorización de catas; identificar stakeholders; acordar objetivos de negocio, técnicos y operativos; fijar criterios de éxito; resumir el plan de trabajo.
+
+**Resultados:** caso de uso y criterios de aceptación documentados abajo. La validación de los criterios técnicos queda pendiente del análisis de la Fase 3.
 
 ### Problema
 
@@ -45,16 +53,22 @@ Los criterios se comprobarán con el conjunto de prueba reservado y con ejecucio
 
 ## 2. Comprensión de los datos
 
+**Objetivo:** conocer el origen, contenido, calidad, limitaciones y utilidad de los datos para el caso de negocio.
+
+**Puntos de trabajo:** documentar fuente y versión; inventariar registros, variables y objetivo; analizar calidad y distribución de clases; identificar sesgos y límites de uso.
+
+**Resultados:** fuente, esquema y límites documentados. Los resultados empíricos de calidad se completarán al ejecutar el análisis exploratorio y el ETL.
+
 ### Fuente y versión
 
-Se usa Wine Quality (Cortez et al., 2009), del UCI Machine Learning Repository, dataset id 186 (https://archive.ics.uci.edu/dataset/186/wine+quality, DOI 10.24432/C56S3T **[Verificar]**). Son vinos *vinho verde* del norte de Portugal. La versión es la oficial y queda fijada por el SHA-256 de cada CSV, que se registra en `data/DATA_CARD.md` y como tag en cada run de MLflow. No se usan `sklearn.datasets.load_wine()` (178 registros, otro problema) ni variantes de Kaggle como WineQT (subconjunto sin trazabilidad).
+Se usa Wine Quality (Cortez et al., 2009), del UCI Machine Learning Repository, dataset id 186 (https://archive.ics.uci.edu/dataset/186/wine+quality; DOI: ____). Son vinos *vinho verde* del norte de Portugal. La versión es la oficial y queda fijada por el SHA-256 de cada CSV, que se registra en `data/DATA_CARD.md` y como tag en cada run de MLflow. No se usan `sklearn.datasets.load_wine()` (178 registros, otro problema) ni variantes de Kaggle como WineQT (subconjunto sin trazabilidad).
 
-| Archivo | Filas | Uso |
+| Archivo | Filas reportadas por UCI | Uso |
 |---|---|---|
 | `winequality-red.csv` | 1.599 | Entrenamiento, prueba y lote de monitoreo del mismo origen |
 | `winequality-white.csv` | 4.898 | Solo lote de data drift (`monitor_red_white`) |
 
-El total es 6.497 registros, por encima del mínimo de 1.000 que exige la consigna. El subconjunto de tintos con el que se entrena (1.599 filas, algo menos tras deduplicar **[Verificar]**) también lo supera. El separador es `;`.
+El total reportado por UCI es 6.497 registros, por encima del mínimo de 1.000 que exige la consigna. El subconjunto de tintos parte de 1.599 filas; su cantidad después de deduplicar se completará al ejecutar el ETL. El separador es `;`.
 
 ### Variables
 
@@ -78,18 +92,24 @@ El objetivo original es `quality`, un entero asignado por la mediana de al menos
 
 ### Calidad esperada
 
-- **Duplicados:** la literatura reporta cerca de 240 filas exactas repetidas en los tintos **[Verificar]**. La cifra real se obtendrá con el ETL (Fase 3) y reemplazará este texto.
-- **Desbalance:** se espera entre 13 % y 14 % de tintos con `quality >= 7` **[Verificar]**. Por eso la métrica principal no es la exactitud (D-04).
-- **Valores faltantes:** la versión oficial no tiene nulos. El ETL lo valida de todos modos, porque un lote futuro sí podría traerlos.
+- **Duplicados exactos en tintos:** pendiente de medir en la Fase 3.
+- **Proporción de tintos con `quality >= 7`:** pendiente de medir en la Fase 3; se usará para describir el desbalance y contextualizar las métricas.
+- **Valores faltantes:** pendiente de verificar durante la inspección y validación del dataset. El ETL comprobará nulos aunque la fuente no los documente.
 
 ### Sesgos y límites
 
 - Todos los vinos son de una sola región (Vinho Verde); el modelo no debe extrapolarse a otras denominaciones.
 - La etiqueta depende del criterio subjetivo de los catadores. Ese criterio puede cambiar con el tiempo, lo que motiva el monitoreo de concept drift.
 - Un modelo entrenado con tintos no es válido para blancos: los rangos de `residual_sugar`, `total_sulfur_dioxide` y `free_sulfur_dioxide` son distintos. Este contraste es el que se aprovecha para probar la detección de data drift.
-- Con pocos positivos en el conjunto de prueba (aproximadamente 28 lotes premium), las métricas son ruidosas; se reporta también el promedio y la desviación de la validación cruzada.
+- La cantidad de positivos en `test` y la incertidumbre asociada a las métricas se informarán después de construir las particiones; también se reportarán el promedio y la desviación de la validación cruzada.
 
 ## 3. Preparación de los datos
+
+**Objetivo:** transformar las fuentes en conjuntos válidos, reproducibles y sin fuga de información para entrenar y evaluar.
+
+**Puntos de trabajo:** seleccionar tintos para modelado y blancos para el escenario de drift; normalizar nombres; validar esquema, tipos, nulos y rangos; deduplicar antes de dividir; derivar `premium`; crear y versionar particiones.
+
+**Resultados pendientes de ejecución:** filas eliminadas por duplicación: ____; filas finales de tintos: ____; distribución de `premium`: ____; tamaños de `train` / `test` / `monitor_green`: ____ / ____ / ____; hashes de particiones: ____.
 
 1. **Selección:** se entrena únicamente con los tintos (D-02). Los blancos se reservan para el lote de drift.
 2. **Normalización de nombres:** de los nombres del CSV a `snake_case`, con el mapeo declarado en `src/wine/config.py`.
@@ -103,12 +123,18 @@ El objetivo original es `quality`, un entero asignado por la mediana de al menos
 | `train` | Tintos deduplicados | 70 % estratificado | Entrenamiento y validación cruzada de 5 folds |
 | `test` | Tintos deduplicados | 15 % estratificado | Evaluación final y base de la simulación de concept drift |
 | `monitor_green` | Tintos deduplicados | 15 % estratificado | Lote del mismo origen: debe dar VERDE |
-| `monitor_red_white` | Blancos | 500 filas con semilla fija | Lote derivado real: debe dar ROJO |
+| `monitor_red_white` | Blancos | Muestra de 500 filas con semilla fija | Lote derivado real: debe dar ROJO |
 | `monitor_red_injected` | `monitor_green` con `alcohol` +1,5, `residual_sugar` ×3 y `total_sulfur_dioxide` ×2 | Igual que `monitor_green` | Lote derivado inyectado: debe dar ROJO |
 
 La estratificación por `premium` conserva la proporción de la clase minoritaria en cada partición. Tener un conjunto de monitoreo propio del mismo origen permite medir los falsos ROJOS sin tocar `test`.
 
 ## 4. Modelado
+
+**Objetivo:** entrenar modelos comparables y reproducibles que estimen la clase `premium`.
+
+**Puntos de trabajo:** establecer un baseline; evaluar las familias candidatas con el mismo protocolo; seleccionar hiperparámetros y umbral usando solo `train`; registrar configuración, resultados y artefactos en MLflow.
+
+**Resultado pendiente de ejecución:** familia y configuración seleccionadas: ____; identificador del run baseline: ____; identificador del run candidato: ____.
 
 ### Candidatos
 
@@ -132,13 +158,19 @@ Se ejecutan ocho combinaciones de hiperparámetros (dos por familia), definidas 
 
 ### Métrica principal
 
-La métrica principal es `test_f1_premium`, el F1 de la clase premium (D-04). Con aproximadamente 14 % de positivos, un modelo que siempre responda "no premium" tendría 86 % de exactitud y F1 igual a cero. El F1 resume el equilibrio entre precisión y recall de la clase que le importa a la bodega. Se informan además `test_precision_premium`, `test_recall_premium`, `test_roc_auc`, `test_pr_auc` y `test_balanced_accuracy`. Los criterios de la sección 1 usan F1, precisión y recall de la clase premium; ROC-AUC, PR-AUC y la exactitud balanceada son métricas de diagnóstico.
+La métrica principal es `test_f1_premium`, el F1 de la clase premium (D-04). Como la clase premium puede ser minoritaria, la exactitud por sí sola podría ocultar que el modelo no identifica positivos; un modelo que siempre responda "no premium" tendría F1 igual a cero. El F1 resume el equilibrio entre precisión y recall de la clase que le importa a la bodega. Se informan además `test_precision_premium`, `test_recall_premium`, `test_roc_auc`, `test_pr_auc` y `test_balanced_accuracy`. Los criterios de la sección 1 usan F1, precisión y recall de la clase premium; ROC-AUC, PR-AUC y la exactitud balanceada son métricas de diagnóstico.
 
 ## 5. Evaluación
 
+**Objetivo:** medir el desempeño en datos no usados para seleccionar el modelo y decidir si cumple los criterios acordados.
+
+**Puntos de trabajo:** calcular métricas de negocio y técnicas; comparar con baseline; revisar variabilidad de validación cruzada; documentar brechas; decidir promoción a `champion` con la regla definida abajo.
+
+**Resultados pendientes de ejecución:** `test_f1_premium`: ____; `test_precision_premium`: ____; `test_recall_premium`: ____; `cv_f1_mean ± cv_f1_std`: ____; cumple criterios: ____; decisión y justificación: ____.
+
 ### Criterios de aceptación
 
-Son los de la sección 1, medidos sobre `test` una sola vez por candidato. Los tres umbrales numéricos son una **[Decisión]** del equipo y están pendientes de reflejarse en `SPEC.md`:
+Son los de la sección 1, medidos sobre `test` una sola vez por candidato. Los umbrales numéricos son una **[Decisión]** propuesta en este documento; su incorporación a `SPEC.md` queda pendiente de aprobación para mantener una fuente de verdad única:
 
 | Tipo | Métrica | Criterio |
 |---|---|---|
@@ -160,6 +192,12 @@ Se registran como mínimo tres versiones de `wine-premium-classifier`: v1 (basel
 El desempeño no se da por bueno para siempre. El `champion` se evalúa de nuevo con el monitoreo de la sección 6: data drift sobre las entradas y concept drift sobre el F1 de la clase premium. La comparación entre `champion` y `challenger` usa siempre la misma métrica principal y el mismo lote: el último lote etiquetado, que no puede formar parte de los datos de entrenamiento del `challenger`.
 
 ## 6. Despliegue
+
+**Objetivo:** poner el modelo aprobado al servicio de la bodega y mantener evidencia de su operación y desempeño.
+
+**Puntos de trabajo:** desplegar el modelo registrado mediante la API; empaquetar y ejecutar el servicio; monitorear entradas y desempeño; definir respuesta ante drift y retraso de etiquetas; documentar arquitectura y operación.
+
+**Resultados pendientes de implementación:** versión de `champion`: ____; fecha de despliegue: ____; evidencia de servicio: ____; resultado de monitoreo: ____.
 
 ### Arquitectura
 
