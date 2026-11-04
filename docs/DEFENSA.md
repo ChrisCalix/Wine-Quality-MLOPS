@@ -19,6 +19,29 @@ La familia, los hiperparámetros y el umbral de decisión se eligen con la valid
 **¿Por qué importan los ~1.000 registros mínimos si solo se entrena con tintos?**
 La consigna pide al menos 1.000 registros. El dataset completo tiene 6.497 y el subconjunto de tintos tiene 1.599 (algo menos tras deduplicar **[Verificar]**), así que ambos cumplen.
 
+## Fase 2–3 — Datos, ETL, entrenamiento y drift
+
+**¿Cómo se garantiza que los datos son los mismos en cada máquina?**
+`download.py` fija el SHA-256 de cada CSV y la descarga falla si el origen cambia. Los splits se guardan con su propio SHA-256 en `checksums.json`, y dos ejecuciones del ETL dan los mismos hashes.
+
+**¿Por qué el ETL tiene dos niveles de rango?**
+Los rangos de tintos (por ejemplo `density` 0,98–1,01) protegen el entrenamiento. Si se aplicaran también a un lote de blancos, que llega a densidad 1,039, el pipeline abortaría antes de que el detector pudiera marcarlo ROJO. Por eso a los lotes de monitoreo solo se les exigen los límites de integridad.
+
+**¿Cómo se eligió el modelo sin usar `test`?**
+Con la validación cruzada de 5 folds sobre `train`: se escoge el mayor `cv_f1_mean`, y el umbral de decisión se ajusta con las predicciones fuera de fold. `test` se mide una sola vez. El ganador fue un Random Forest con umbral 0,22 (`cv_f1_mean` 0,568, `test_f1` 0,500).
+
+**¿Cumple el modelo los criterios de negocio?**
+Parcialmente. Recall 0,714 sí cumple (≥ 0,70), pero la precisión 0,385 (< 0,50) y el F1 0,500 (< 0,60) no. Por eso el `champion` tiene `validated=false` y la brecha se documenta como limitación en `crispdm.md` §5. La rúbrica evalúa la ingeniería, no la exactitud.
+
+**¿Por qué la regla de data drift usa 3 de 11 variables?**
+Se calibró con 200 lotes bootstrap de `monitor_green`: con `k = 3` hay 1 falso ROJO (0,5 %, por debajo del 5 % exigido) y se siguen detectando los blancos y el lote inyectado. Con `k ≥ 4` el lote inyectado, que desplaza exactamente tres variables, dejaría de detectarse.
+
+**¿Por qué cambió el resultado del chi² al cambiar la referencia?**
+Con `test` (204 filas) como referencia hubo 10,5 % de falsos ROJOS, porque su tasa predicha (25,5 %) difiere por azar de la de `monitor_green` (18,6 %). Con `train` (951 filas) hubo 0,5 %. Una referencia pequeña mete ruido en la comparación.
+
+**¿Por qué el concept drift simulado no dispara la alarma?**
+El modelo depende sobre todo de `alcohol` y `sulphates`, y la regla del nuevo panel marca premium a un subconjunto de los vinos que ya marca. Al reetiquetar, el recall sube de 0,71 a 0,95 y el F1 apenas cambia (0,50 → 0,53), así que no hay degradación que detectar. El mecanismo (umbral `F1_ref − 3σ`, 3 lotes consecutivos) se comprueba con un modelo oráculo.
+
 ## Fase 4 — API y Model Registry
 
 **¿Cómo sabe la API qué modelo servir?**
@@ -29,6 +52,12 @@ Lee `MODEL_URI` y carga el alias `champion` desde MLflow al arrancar; obtiene ve
 
 **¿Para qué sirve `served_by`?**
 Identifica el pod o contenedor que atendió la petición y permite demostrar el balanceo entre réplicas.
+
+**¿Por qué el modelo registrado devuelve probabilidades y no la clase?**
+Porque el umbral de decisión depende del modelo (0,22 en el `champion`). El registro devuelve `[P(no premium), P(premium)]` y el umbral va en el tag `decision_threshold` de la versión; así la API puede aplicarlo y se puede cambiar sin reentrenar.
+
+**¿Qué diferencia hay entre `champion` y `challenger`?**
+`champion` es la versión que sirve la API (v3, Random Forest); `challenger` es el candidato (v2, regresión logística) y solo se promovería si supera al actual en el último lote etiquetado.
 
 ## Fase 5 — Docker
 

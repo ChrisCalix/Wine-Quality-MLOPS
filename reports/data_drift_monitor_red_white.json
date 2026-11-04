@@ -1,0 +1,116 @@
+{
+  "status": "ROJO",
+  "n_variables_with_drift": 10,
+  "min_drift_variables": 3,
+  "n_batch": 500,
+  "n_baseline": 951,
+  "variables": [
+    {
+      "name": "fixed_acidity",
+      "ks_statistic": 0.40709989484752895,
+      "ks_p_value": 3.656926951393769e-49,
+      "psi": 1.3672985931979436,
+      "ks_drift": true,
+      "psi_drift": true,
+      "drift": true
+    },
+    {
+      "name": "volatile_acidity",
+      "ks_statistic": 0.649570977917981,
+      "ks_p_value": 2.1484583309151173e-131,
+      "psi": 2.698951918757231,
+      "ks_drift": true,
+      "psi_drift": true,
+      "drift": true
+    },
+    {
+      "name": "citric_acid",
+      "ks_statistic": 0.2882797055730809,
+      "ks_p_value": 1.5992751927367674e-24,
+      "psi": 0.9424287123135925,
+      "ks_drift": true,
+      "psi_drift": true,
+      "drift": true
+    },
+    {
+      "name": "residual_sugar",
+      "ks_statistic": 0.49167192429022083,
+      "ks_p_value": 1.4607107368384392e-72,
+      "psi": 2.204764681586827,
+      "ks_drift": true,
+      "psi_drift": true,
+      "drift": true
+    },
+    {
+      "name": "chlorides",
+      "ks_statistic": 0.834311251314406,
+      "ks_p_value": 3.393139210819604e-234,
+      "psi": 4.81669464924974,
+      "ks_drift": true,
+      "psi_drift": true,
+      "drift": true
+    },
+    {
+      "name": "free_sulfur_dioxide",
+      "ks_statistic": 0.5468916929547845,
+      "ks_p_value": 9.981318810784782e-91,
+      "psi": 2.074911001716945,
+      "ks_drift": true,
+      "psi_drift": true,
+      "drift": true
+    },
+    {
+      "name": "total_sulfur_dioxide",
+      "ks_statistic": 0.7829716088328076,
+      "ks_p_value": 8.58513204825105e-201,
+      "psi": 5.162744127036472,
+      "ks_drift": true,
+      "psi_drift": true,
+      "drift": true
+    },
+    {
+      "name": "density",
+      "ks_statistic": 0.5152197686645636,
+      "ks_p_value": 5.175985464225083e-80,
+      "psi": 1.3972866604920424,
+      "ks_drift": true,
+      "psi_drift": true,
+      "drift": true
+    },
+    {
+      "name": "ph",
+      "ks_statistic": 0.32479074658254475,
+      "ks_p_value": 4.042649138381785e-31,
+      "psi": 0.5132616414921223,
+      "ks_drift": true,
+      "psi_drift": true,
+      "drift": true
+    },
+    {
+      "name": "sulphates",
+      "ks_statistic": 0.5546624605678234,
+      "ks_p_value": 1.7613088932737702e-93,
+      "psi": 1.7727564669443878,
+      "ks_drift": true,
+      "psi_drift": true,
+      "drift": true
+    },
+    {
+      "name": "alcohol",
+      "ks_statistic": 0.09278443743427972,
+      "ks_p_value": 0.006521769317688028,
+      "psi": 0.1667964071625605,
+      "ks_drift": false,
+      "psi_drift": false,
+      "drift": false
+    }
+  ],
+  "chi2": {
+    "statistic": 171.98925395865768,
+    "p_value": 2.7208713174911063e-39,
+    "batch_premium_rate": 0.52,
+    "reference_premium_rate": 0.1861198738170347,
+    "drift": true
+  },
+  "notes": []
+}

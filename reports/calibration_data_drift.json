@@ -1,0 +1,59 @@
+{
+  "n_batches": 200,
+  "seed": 42,
+  "with_chi2": true,
+  "chi2_false_red_batches": 1,
+  "max_variables_with_drift": 1,
+  "rows": [
+    {
+      "k": 1,
+      "false_red_rate": 0.02,
+      "false_red_batches": 4,
+      "detects_white": true,
+      "detects_injected": true,
+      "meets_criterion": true
+    },
+    {
+      "k": 2,
+      "false_red_rate": 0.005,
+      "false_red_batches": 1,
+      "detects_white": true,
+      "detects_injected": true,
+      "meets_criterion": true
+    },
+    {
+      "k": 3,
+      "false_red_rate": 0.005,
+      "false_red_batches": 1,
+      "detects_white": true,
+      "detects_injected": true,
+      "meets_criterion": true
+    },
+    {
+      "k": 4,
+      "false_red_rate": 0.005,
+      "false_red_batches": 1,
+      "detects_white": true,
+      "detects_injected": false,
+      "meets_criterion": true
+    },
+    {
+      "k": 5,
+      "false_red_rate": 0.005,
+      "false_red_batches": 1,
+      "detects_white": true,
+      "detects_injected": false,
+      "meets_criterion": true
+    },
+    {
+      "k": 6,
+      "false_red_rate": 0.005,
+      "false_red_batches": 1,
+      "detects_white": true,
+      "detects_injected": false,
+      "meets_criterion": true
+    }
+  ],
+  "monitor_red_white_variables_with_drift": 10,
+  "monitor_red_injected_variables_with_drift": 3
+}

@@ -50,7 +50,7 @@ Detalles de cálculo:
 
 - **PSI:** 10 intervalos por cuantiles del baseline, con los extremos abiertos para que un valor fuera del rango de entrenamiento caiga en el primer o el último intervalo en lugar de perderse. Los intervalos vacíos se suavizan con un epsilon pequeño para evitar logaritmos de cero.
 - **KS:** `scipy.stats.ks_2samp` entre el baseline y el lote.
-- **Chi²:** se compara la proporción de `premium = 1` predicha en el lote con la del baseline. Las predicciones salen del `champion`.
+- **Chi²:** se compara, con una tabla de contingencia 2×2, la proporción de `premium = 1` predicha en el lote con la predicha sobre el baseline (`train`). Las predicciones salen del `champion`, aplicando el umbral de su versión. Es opcional en la CLI: sin modelo se omite y el reporte lo anota; con `MLFLOW_TRACKING_URI` definido o `--model-uri` se incluye.
 - La **corrección de Bonferroni** y el **PSI** se combinan a propósito: el KS solo dice que "hay diferencia" y el PSI dice si esa diferencia es grande. Una variable cuenta como con drift solo si cumple **ambas** condiciones.
 
 ### 1.3 Regla del lote
@@ -99,8 +99,20 @@ El **nuevo panel de catadores** cambia su criterio: solo considera premium a un 
 ### 2.4 Persistencia y alarma
 
 - La alarma se dispara con **3 lotes consecutivos** en caída. Un lote ruidoso aislado no la activa.
-- La prueba automática (`tests/test_concept_drift.py`) exige dos cosas: sin reetiquetado no hay alarma, y con reetiquetado la alarma se dispara entre los lotes 6 y 10. Por tanto, en ningún caso debe haber alarma en los lotes 1 a 4.
+- Pruebas automáticas (`tests/test_concept_drift.py`, 5 semillas): sin reetiquetado no hay alarma; la persistencia exige 3 lotes consecutivos; y el mecanismo sí alarma cuando el modelo se degrada de verdad (se comprueba con un modelo oráculo que acierta las etiquetas originales).
 - Salidas: `reports/concept_drift.json` y `reports/concept_drift.png` (F1 por lote, línea de umbral, inicio del drift y lote de alarma marcados).
+
+### 2.4.1 Resultado con el `champion` real: no hay alarma [Cierto]
+
+Con la regla de la sección 2.2 y el `champion` (v3, umbral 0,22), `SEED = 42`: `F1_ref` = 0,495, `σ_ref` = 0,071 y umbral = 0,282. El F1 por lote es 0,52 · 0,43 · 0,64 · 0,62 · 0,57 · 0,59 · 0,49 · 0,49 · 0,49 · 0,44 · 0,53 · 0,54. **Ningún lote cae bajo el umbral y no se dispara la alarma**, de modo que `reports/concept_drift.png` no marca ningún lote de alarma.
+
+Esto no es un fallo del código sino una propiedad del escenario con este modelo:
+
+- El modelo depende sobre todo de `alcohol` y `sulphates`, y marca premium a los vinos con valores altos de ambos. La regla nueva exige `alcohol >= 11.5` y `sulphates >= 0.65`, así que marca premium a un subconjunto de los vinos que el modelo ya marca.
+- Sobre `test`, la regla marca 20 vinos premium frente a 28 originales, y el modelo predice 52. Si se reetiqueta el 100 %, el **recall sube** de 0,71 a 0,95, la precisión baja de 0,38 a 0,37 y el F1 pasa de 0,500 a 0,528.
+- Es decir, este cambio de criterio no es drift para este modelo: no empeora sus aciertos.
+
+**Consecuencia para los requisitos.** REQ-CD-01 (simular el cambio) y REQ-CD-03 (criterio de reentrenamiento) están definidos e implementados. REQ-CD-02 pide la gráfica con el lote de alarma, que con este escenario queda sin alarma. La demostración de que la alarma funciona se apoya en la prueba con modelo oráculo, no en el `champion`. Se deja como decisión abierta del equipo si se quiere definir otro escenario de reetiquetado que sí degrade al modelo.
 
 ### 2.5 Acción de reentrenamiento
 
@@ -113,10 +125,27 @@ El **nuevo panel de catadores** cambia su criterio: solo considera premium a un 
 
 ## 3. Calibración de la regla "k de 11"
 
-Se completa en la Fase 3 (T3.14). Contenido previsto:
+Resultado de `python -m wine.drift.calibrate` (T3.14): 200 lotes bootstrap de `monitor_green` (con reemplazo, mismo tamaño), `SEED = 42`, regla completa con el chi² del `champion` (v3, umbral 0,22). Datos en `reports/calibration_data_drift.json`.
 
-| Valor de k | Falsos ROJOS en 200 lotes bootstrap de `monitor_green` | ¿Cumple < 5 %? |
-|---|---|---|
+| k | Falsos ROJOS (de 200) | Tasa | ¿Cumple < 5 %? | ¿`monitor_red_white` sigue ROJO? | ¿`monitor_red_injected` sigue ROJO? |
+|---|---|---|---|---|---|
+| 1 | 4 | 2,0 % | Sí | Sí | Sí |
+| 2 | 1 | 0,5 % | Sí | Sí | Sí |
+| **3** | **1** | **0,5 %** | **Sí** | **Sí** | **Sí** |
+| 4 | 1 | 0,5 % | Sí | Sí | **No** |
+| 5 | 1 | 0,5 % | Sí | Sí | **No** |
+| 6 | 1 | 0,5 % | Sí | Sí | **No** |
+
+**Valor final: `k = 3`.** Es el mayor `k` que cumple el criterio y sigue detectando el lote inyectado (que desplaza exactamente tres variables). Con `k = 1` o `2` desaparecería la zona AMARILLA, y con `k ≥ 4` el lote inyectado dejaría de ser ROJO. No hace falta cambiar `DRIFT_VARIABLES_FOR_RED` en `config.py`.
+
+Sin el chi² (solo KS y PSI) los falsos ROJOS con `k = 3` son 0 de 200. El único falso ROJO de la tabla lo produce el chi².
+
+**Dos límites que conviene conocer**
+
+- **La referencia del chi² importa.** Con `test` (204 filas, tasa predicha 25,5 %) como referencia, los falsos ROJOS con `k = 3` suben a 21 de 200 (10,5 %), porque `monitor_green` (18,6 %) difiere de esa muestra pequeña por azar y los 200 lotes bootstrap heredan la diferencia. Con `train` (951 filas, 18,6 %) o con `train` + `test` (1.155 filas, 19,8 %) son 1 de 200. Por eso la referencia es el baseline completo.
+- **El bootstrap de un solo lote subestima el ruido de la referencia.** Mide la variación dentro de `monitor_green`, no entre muestras distintas del mismo origen. La cifra de 0,5 % es una cota optimista; en producción conviene revisar los ROJOS aislados antes de actuar.
+
+---|---|---|
 | 3 | _pendiente_ | _pendiente_ |
 
 ---
