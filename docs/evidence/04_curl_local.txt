@@ -1,0 +1,5 @@
+$ curl -sS -X POST http://127.0.0.1:8000/predict -H 'Content-Type: application/json' -d @docs/examples/red_wine.json
+{"predictions":[{"premium":0,"probability_premium":0.0}],"model_name":"wine-premium-dev-classifier","model_version":"1","model_alias":"champion","run_id":"1b53b6863eaa44078daf41aa54df3055","served_by":"iMac-de-Sonic.local"}
+
+$ curl -sS http://127.0.0.1:8000/model-info
+{"model_name":"wine-premium-dev-classifier","model_version":"1","model_alias":"champion","run_id":"1b53b6863eaa44078daf41aa54df3055","loaded_at":"2026-11-04T05:20:43.575747Z","served_by":"iMac-de-Sonic.local"}
