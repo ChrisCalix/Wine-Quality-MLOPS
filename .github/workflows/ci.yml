@@ -1,5 +1,5 @@
 # CI: cada cambio se verifica antes de aceptarse.
-# Pasos: lint, sin pickle/joblib, pruebas, gate de data drift y build de la imagen.
+# Pasos: lint, sin pickle/joblib, pruebas (Python y UI), gate de data drift y build de la imagen.
 # No necesita servidor MLflow: las pruebas usan modelos locales o simulados y la CLI de
 # drift omite el chi² cuando MLFLOW_TRACKING_URI no está definida. Ver docs/CICD.md.
 name: CI
@@ -50,6 +50,9 @@ jobs:
       - name: Pruebas (ETL, API, data drift y concept drift)
         run: pytest -v
 
+      - name: Pruebas de la UI (modelo y adaptador, con Node)
+        run: node --test ui/tests/*.test.mjs
+
       - name: Gate de drift - monitor_green debe dar VERDE (código 0)
         env:
           PYTHONPATH: src
@@ -67,5 +70,8 @@ jobs:
             exit 1
           fi
 
-      - name: Construir la imagen
+      - name: Construir la imagen de la API
         run: docker build -t wine-api:ci .
+
+      - name: Construir la imagen de la UI
+        run: docker build -t wine-ui:ci ui/

@@ -1,0 +1,9 @@
+# Solo van a la imagen index.html, css/, js/ y nginx.conf; nada de desarrollo ni pruebas.
+tests/
+node_modules/
+dev_server.py
+README.md
+package.json
+Dockerfile
+.dockerignore
+**/.gitkeep
