@@ -1,0 +1,17 @@
+{
+  "records": [
+    {
+      "fixed_acidity": 6.3,
+      "volatile_acidity": 0.27,
+      "citric_acid": 0.37,
+      "residual_sugar": 11.7,
+      "chlorides": 0.076,
+      "free_sulfur_dioxide": 47.0,
+      "total_sulfur_dioxide": 136.0,
+      "density": 0.9978,
+      "ph": 3.05,
+      "sulphates": 0.51,
+      "alcohol": 8.6
+    }
+  ]
+}
