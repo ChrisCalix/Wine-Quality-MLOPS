@@ -40,3 +40,38 @@ La API necesita que el servidor responda antes de intentar resolver el alias `ch
 
 **¿Qué demuestra la prueba de Compose?**
 Que los contenedores responden `/ready` y `/predict` sin activar un entorno Python local, usando el modelo real versión 3.
+
+## Fase 6 — Kubernetes
+
+**¿Por qué el Service es `LoadBalancer` y no `NodePort`?**
+El Kubernetes de Docker Desktop usa nodos kind: contenedores en una red interna (172.18.0.0/16) que no se enruta desde macOS, así que `localhost:30080` no responde. Un `LoadBalancer` recibe IP externa y Docker Desktop lo publica en `localhost:8080`. El reparto entre pods lo sigue haciendo kube-proxy.
+
+**¿Cómo se demuestra el balanceo y por qué `Connection: close`?**
+Con 20 peticiones a `/predict` que devuelven `served_by`. Sin keep-alive cada petición abre una conexión nueva; si se reutilizara una sola, kube-proxy (que reparte por conexión) enviaría todo al mismo pod. El resultado fue 2 pods distintos, sin reparto exactamente parejo porque la elección es aleatoria.
+
+**¿Qué pasa cuando se borra un pod?**
+El ReplicaSet crea otro para volver al estado deseado. Sin fallos gracias a la readiness probe (solo recibe tráfico un pod con modelo cargado) y a `preStop: sleep 5` (el pod sale de los endpoints antes de cerrarse). La prueba registró 117 de 117 respuestas HTTP 200.
+
+**¿Qué hace cada probe?**
+`startupProbe` da hasta 150 s para cargar el modelo; `readinessProbe` (`/ready`) decide si recibe tráfico; `livenessProbe` (`/health`) reinicia el contenedor si se cuelga. Se subió el timeout a 5 s porque con 1 s fallaban bajo carga.
+
+**¿Por qué solo 2 réplicas y no más?**
+Cada réplica carga el modelo en memoria y Docker Desktop tiene 6 GB. Con 4 GB el plano de control de kind se reiniciaba. Dos réplicas bastan para demostrar balanceo y autorreparación; el escalado manual llega a 4 y el HPA llegará a 6.
+
+## Fase 7 — Autoescalado (HPA)
+
+**¿Cómo decide el HPA cuántos pods crear?**
+Compara la CPU media de los pods con el objetivo (60 % de `requests.cpu`, o sea ~60 m por pod) y calcula réplicas = ceil(réplicas actuales × uso actual / objetivo), acotado entre `minReplicas` 2 y `maxReplicas` 6. En la prueba, con la CPU en 340 % pidió subir de 2 a 4 y luego a 6.
+
+**¿Por qué hacen falta `requests` de CPU y metrics-server?**
+El porcentaje se calcula sobre el request: sin él el HPA no puede medir ("unknown"). metrics-server es quien publica el uso de CPU de cada pod en la Metrics API; en Docker Desktop requirió `--kubelet-insecure-tls` por los certificados autofirmados.
+
+**¿Por qué la subida es rápida y la bajada lenta?**
+`scaleUp` agrega hasta 2 pods cada 30 s (cada pod carga el modelo en memoria). `scaleDown` espera una ventana de estabilización de 60 s y baja 1 pod cada 30 s, para no oscilar si la carga es intermitente. En la evidencia pasó de 6 a 2 pods en unos 2 minutos tras terminar la carga.
+
+**¿Qué demuestra la prueba de carga?**
+Un Job de dos pods con 8 hilos cada uno llamó 240 s al Service por su DNS interno: 3.858 peticiones sin ninguna fallida. Las réplicas subieron de 2 a 6 en unos 2 minutos y volvieron a 2 en unos 7 minutos totales (`docs/evidence/07_hpa.txt`).
+
+**¿Qué pasa con el escalado manual si hay HPA?**
+El HPA reajusta las réplicas según la métrica y sobrescribe `kubectl scale`. Por eso las pruebas manuales de la Fase 6 se hacen sin HPA.
+

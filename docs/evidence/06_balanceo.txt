@@ -1,0 +1,31 @@
+
+== T6.6 Balanceo: 20 peticiones nuevas a http://localhost:8080/predict (2026-11-04 10:48:27) ==
+NAME                        READY   STATUS    RESTARTS   AGE   IP           NODE              NOMINATED NODE   READINESS GATES
+wine-api-7f49b58dc9-945tm   1/1     Running   0          43s   10.244.3.6   desktop-worker3   <none>           <none>
+wine-api-7f49b58dc9-gn7lh   1/1     Running   0          80s   10.244.4.6   desktop-worker    <none>           <none>
+ 1  HTTP 200  served_by=wine-api-7f49b58dc9-gn7lh
+ 2  HTTP 200  served_by=wine-api-7f49b58dc9-gn7lh
+ 3  HTTP 200  served_by=wine-api-7f49b58dc9-gn7lh
+ 4  HTTP 200  served_by=wine-api-7f49b58dc9-945tm
+ 5  HTTP 200  served_by=wine-api-7f49b58dc9-945tm
+ 6  HTTP 200  served_by=wine-api-7f49b58dc9-945tm
+ 7  HTTP 200  served_by=wine-api-7f49b58dc9-gn7lh
+ 8  HTTP 200  served_by=wine-api-7f49b58dc9-gn7lh
+ 9  HTTP 200  served_by=wine-api-7f49b58dc9-gn7lh
+10  HTTP 200  served_by=wine-api-7f49b58dc9-gn7lh
+11  HTTP 200  served_by=wine-api-7f49b58dc9-gn7lh
+12  HTTP 200  served_by=wine-api-7f49b58dc9-945tm
+13  HTTP 200  served_by=wine-api-7f49b58dc9-945tm
+14  HTTP 200  served_by=wine-api-7f49b58dc9-945tm
+15  HTTP 200  served_by=wine-api-7f49b58dc9-945tm
+16  HTTP 200  served_by=wine-api-7f49b58dc9-945tm
+17  HTTP 200  served_by=wine-api-7f49b58dc9-gn7lh
+18  HTTP 200  served_by=wine-api-7f49b58dc9-945tm
+19  HTTP 200  served_by=wine-api-7f49b58dc9-gn7lh
+20  HTTP 200  served_by=wine-api-7f49b58dc9-gn7lh
+
+== Resumen por pod ==
+   9 wine-api-7f49b58dc9-945tm
+  11 wine-api-7f49b58dc9-gn7lh
+valores distintos de served_by: 2 (criterio REQ-K8S-03: >= 2)
+RESULTADO: OK

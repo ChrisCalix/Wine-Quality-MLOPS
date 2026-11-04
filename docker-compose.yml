@@ -22,7 +22,8 @@ services:
       --backend-store-uri sqlite:////mlflow_data/mlflow.db
       --artifacts-destination /mlflow_data/artifacts
       --host 0.0.0.0
-      --allowed-hosts localhost,127.0.0.1,mlflow,mlflow:5000
+      --allowed-hosts localhost,127.0.0.1,mlflow,mlflow:5000,host.docker.internal,host.docker.internal:5678
+      --workers 1
       --port 5000"
     ports:
       - "5678:5000"

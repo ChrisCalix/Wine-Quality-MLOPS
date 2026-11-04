@@ -1,0 +1,92 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wine-api
+  namespace: wine-mlops
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 0
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: wine-api
+  template:
+    metadata:
+      labels:
+        app: wine-api
+    spec:
+      terminationGracePeriodSeconds: 30
+      initContainers:
+        - name: wait-for-mlflow
+          image: wine-api:local
+          imagePullPolicy: IfNotPresent
+          envFrom:
+            - configMapRef:
+                name: wine-api-config
+          command:
+            - python
+            - -c
+            - |
+              import os
+              import time
+              import urllib.request
+
+              url = os.environ["MLFLOW_TRACKING_URI"] + "/health"
+              for attempt in range(120):
+                  try:
+                      with urllib.request.urlopen(url, timeout=5) as response:
+                          if response.status == 200:
+                              break
+                  except Exception:
+                      time.sleep(10)
+              else:
+                  raise SystemExit("MLflow no respondió en 20 minutos")
+      containers:
+        - name: api
+          image: wine-api:local
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8000
+              name: http
+          envFrom:
+            - configMapRef:
+                name: wine-api-config
+          env:
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+          lifecycle:
+            preStop:
+              exec:
+                command: ["sleep", "5"]
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 5
+            failureThreshold: 30
+          readinessProbe:
+            httpGet:
+              path: /ready
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 500m
+              memory: 512Mi

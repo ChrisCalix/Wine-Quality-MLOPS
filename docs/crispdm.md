@@ -163,7 +163,7 @@ El desempeño no se da por bueno para siempre. El `champion` se evalúa de nuevo
 
 ### Arquitectura
 
-El servidor MLflow conserva experimentos, artefactos y versiones del registro. La API FastAPI carga el modelo usando `MODEL_URI` y la referencia `models:/wine-premium-classifier@champion`; no carga modelos desde rutas de archivos. Docker empaqueta la API con sus dependencias. Kubernetes ejecuta tres réplicas del servicio `wine-api` en el namespace `wine-mlops`, con probes de salud y readiness. La UI Bootstrap se sirve mediante nginx y envía `/api` al Service de Kubernetes.
+El servidor MLflow conserva experimentos, artefactos y versiones del registro. La API FastAPI carga el modelo usando `MODEL_URI` y la referencia `models:/wine-premium-classifier@champion`; no carga modelos desde rutas de archivos. Docker empaqueta la API con sus dependencias. Kubernetes ejecuta dos réplicas del servicio `wine-api` en el namespace `wine-mlops`, con probes de salud y readiness. La UI Bootstrap se sirve mediante nginx y envía `/api` al Service de Kubernetes.
 
 Flujo principal:
 

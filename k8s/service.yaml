@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: wine-api
+  namespace: wine-mlops
+spec:
+  type: LoadBalancer
+  selector:
+    app: wine-api
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http

@@ -17,3 +17,6 @@ __pycache__/
 /SPEC.md
 /PLAN.md
 /TASKS.md
+
+/examples
+.hpa_watch.tmp

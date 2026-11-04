@@ -1,0 +1,38 @@
+
+== T6.8 Escalado manual: 2 -> 4 -> 2 (2026-11-04 10:49:05) ==
+$ kubectl get deploy,pods
+NAME       READY   UP-TO-DATE   AVAILABLE   AGE
+wine-api   2/2     2            2           122m
+NAME                        READY   STATUS    RESTARTS   AGE
+wine-api-7f49b58dc9-gn7lh   1/1     Running   0          118s
+wine-api-7f49b58dc9-ls968   1/1     Running   0          31s
+
+$ kubectl scale deployment wine-api --replicas=4
+deployment.apps/wine-api scaled
+NAME                        READY   STATUS    RESTARTS   AGE
+wine-api-7f49b58dc9-6mv76   0/1     Running   0          3s
+wine-api-7f49b58dc9-8mh98   0/1     Running   0          3s
+wine-api-7f49b58dc9-gn7lh   1/1     Running   0          2m1s
+wine-api-7f49b58dc9-ls968   1/1     Running   0          34s
+
+NAME       READY   UP-TO-DATE   AVAILABLE   AGE
+wine-api   4/4     4            4           122m
+NAME                        READY   STATUS    RESTARTS   AGE
+wine-api-7f49b58dc9-6mv76   1/1     Running   0          24s
+wine-api-7f49b58dc9-8mh98   1/1     Running   0          24s
+wine-api-7f49b58dc9-gn7lh   1/1     Running   0          2m22s
+wine-api-7f49b58dc9-ls968   1/1     Running   0          55s
+-- 20 peticiones con 4 réplicas --
+   5 wine-api-7f49b58dc9-6mv76
+   6 wine-api-7f49b58dc9-8mh98
+   4 wine-api-7f49b58dc9-gn7lh
+   5 wine-api-7f49b58dc9-ls968
+
+$ kubectl scale deployment wine-api --replicas=2
+deployment.apps/wine-api scaled
+NAME       READY   UP-TO-DATE   AVAILABLE   AGE
+wine-api   2/2     2            2           122m
+NAME                        READY   STATUS    RESTARTS   AGE
+wine-api-7f49b58dc9-8mh98   1/1     Running   0          42s
+wine-api-7f49b58dc9-gn7lh   1/1     Running   0          2m40s
+RESULTADO: OK (2 -> 4 -> 2)
