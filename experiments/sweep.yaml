@@ -1,0 +1,29 @@
+# Barrido de hiperparámetros: 8 combinaciones de PLAN.md Fase 3B.
+# Todas usan los mismos splits, SEED=42 y el umbral de decisión por defecto.
+threshold: 0.5
+runs:
+  - name: 01-lr-C1.0-balanced
+    family: logistic_regression
+    purpose: baseline
+    params: {C: 1.0, class_weight: balanced}
+  - name: 02-lr-C0.1-balanced
+    family: logistic_regression
+    params: {C: 0.1, class_weight: balanced}
+  - name: 03-rf-n200-depthNone-balanced
+    family: random_forest
+    params: {n_estimators: 200, max_depth: null, class_weight: balanced}
+  - name: 04-rf-n500-depth10-leaf2
+    family: random_forest
+    params: {n_estimators: 500, max_depth: 10, min_samples_leaf: 2}
+  - name: 05-hgb-lr0.1-iter200
+    family: hist_gradient_boosting
+    params: {learning_rate: 0.1, max_iter: 200}
+  - name: 06-hgb-lr0.05-iter400-leaves15
+    family: hist_gradient_boosting
+    params: {learning_rate: 0.05, max_iter: 400, max_leaf_nodes: 15}
+  - name: 07-svc-C1-gammaScale
+    family: svc
+    params: {C: 1.0, gamma: scale}
+  - name: 08-svc-C10-gammaScale
+    family: svc
+    params: {C: 10, gamma: scale}
