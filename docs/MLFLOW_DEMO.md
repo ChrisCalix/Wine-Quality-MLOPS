@@ -14,7 +14,7 @@ Objetivo: mostrar en **menos de 5 minutos** que todo el ciclo de experimentació
    Debe responder `OK`.
 
 2. Abre **http://localhost:5678** en el navegador. Si ves una pantalla de error o un `403`, el contenedor tiene el `--allowed-hosts` antiguo y no incluye `localhost:5678`; recréalo con `docker compose up -d mlflow` desde una rama con el `docker-compose.yml` actual.
-3. Cierra el panel **MLflow Assistant** (la X de la derecha) y el popup **Detect Issues** ("Got it"), porque tapan la tabla.
+3. Cierra el panel **MLflow Assistant** (la X de la esquina superior derecha); al cerrarlo la tabla se ensancha y los botones cambian de sitio. El popup **Detect Issues** solo sale en la vista GenAI.
 4. La UI abre por defecto en la vista **GenAI**, que no sirve para esta demo (muestra "Failed to load chart data"). Usa las URLs directas de cada paso o el enlace **Training runs** del menú izquierdo.
 
 Qué contiene el servidor [Cierto, medido en MLflow]:
@@ -41,31 +41,31 @@ Qué contiene el servidor [Cierto, medido en MLflow]:
 
 ### Paso 2 — Columnas visibles (≈ 40 s)
 
-- **Qué hacer:** botón **Columns** → marca `test_f1_premium`, `test_recall_premium`, `test_pr_auc`, `cv_f1_mean` y el parámetro `model_family`. Quita las que sobren para que la tabla quepa.
-- **Qué debe verse:** la tabla con esas cinco columnas y valores en todas las filas, sin celdas vacías.
+- **Qué hacer:** botón **Columns** (debajo de la barra de búsqueda). Se abre un menú con los grupos *Attributes*, *Metrics (9)*, *Parameters* y *Tags*, y un buscador. Desmarca *Dataset*, *Source* y *Models*, y marca `cv_f1_mean`, `test_f1_premium`, `test_pr_auc`, `test_recall_premium` y, en *Parameters*, `model_family`. La tabla se actualiza al cerrar el menú (haz clic fuera).
+- **Qué debe verse:** la tabla con esas columnas y valores en todas las filas, sin celdas vacías.
 - **Qué decir:** son las métricas de `SPEC.md` §6.3. `cv_f1_mean` es la que usamos para **elegir**; `test_*` se mide una sola vez al final.
 - **Captura:** `docs/evidence/04_mlflow_02_columnas.png`
 
 ### Paso 3 — Ordenar y filtrar (≈ 40 s)
 
 - **Qué hacer:**
-  1. Pulsa el encabezado de `test_f1_premium` para ordenar de mayor a menor (o usa **Sort**).
-  2. En la barra de búsqueda escribe: `params.model_family = "random_forest"`.
-- **Qué debe verse:** ordenado, el primero es `04-rf-n500-depth10-leaf2-thr` con `test_f1_premium` = **0,500**. Tras el filtro quedan **2 runs** (`03` y `04`).
+  1. Haz clic en el encabezado de la columna `test_f1_premium`: el botón pasa a **Sort: test_f1_premium** y la tabla queda de mayor a menor.
+  2. En la barra de búsqueda escribe `tags.sweep = 'sweep.yaml+tuned' and params.model_family = "random_forest"`. Al escribir sale un desplegable de sugerencias que se come el Enter: pulsa **Esc** y luego **Enter**.
+- **Qué debe verse:** ordenado, el orden es `04-rf` (**0,500**), `03-rf` (0,482), `08-svc` (0,478), `02-lr`, `01-lr`, `07-svc`, `05-hgb` y `06-hgb` (0,386). Tras el filtro quedan **2 runs** (`04-rf` y `03-rf`). Ojo: si escribes solo `params.model_family = "random_forest"`, el filtro reemplaza al de la etiqueta y salen **4 runs**, porque entran también los dos del barrido con umbral fijo.
 - **Qué decir:** el orden por `test_f1_premium` no coincide exactamente con el orden por `cv_f1_mean` (por ejemplo `08-svc` es tercero en test pero último en validación cruzada), y por eso se elige con la validación cruzada y no con `test`.
 - **Captura:** `docs/evidence/04_mlflow_03_orden_filtro.png`
 
 ### Paso 4 — Comparar runs (≈ 40 s)
 
-- **Qué hacer:** quita el filtro, marca la casilla de **4 runs** (uno por familia: `04-rf-…`, `02-lr-…`, `07-svc-…`, `06-hgb-…`) y pulsa **Compare**. En la vista de comparación abre **Parallel Coordinates Plot** y elige como parámetro `decision_threshold` y como métrica `test_f1_premium`.
-- **Qué debe verse:** "Comparing 4 Runs from 1 Experiment" y el gráfico de coordenadas paralelas; debajo, la tabla de parámetros y métricas lado a lado.
+- **Qué hacer:** vuelve a la tabla con el filtro `tags.sweep = 'sweep.yaml+tuned'`, marca las casillas de **4 runs** (uno por familia: `04-rf-…`, `02-lr-…`, `07-svc-…`, `06-hgb-…`). Al marcarlos, la barra de arriba cambia a **Rename · Delete · Compare · Add tags**: pulsa **Compare** (¡no **Delete**!).
+- **Qué debe verse:** "Comparing 4 Runs from 1 Experiment" y, en *Parallel Coordinates Plot*, los parámetros `C`, `class_weight` y `decision_threshold` y la métrica `cv_f1_mean` ya seleccionados; debajo, *Run details* con los parámetros y métricas lado a lado.
 - **Qué decir:** el umbral de decisión cambia mucho entre modelos (0,16 a 0,62) porque se ajusta por validación cruzada; compararlos con una misma métrica y los mismos splits es lo que hace válida la comparación.
 - **Captura:** `docs/evidence/04_mlflow_04_comparacion.png`
 
 ### Paso 5 — Artefactos de un run (≈ 40 s)
 
 - **Qué hacer:** abre el run `04-rf-n500-depth10-leaf2-thr` y la pestaña **Artifacts**.
-- **Qué debe verse:** `confusion_matrix.png`, `roc_curve.png`, `pr_curve.png`, `feature_importance.json`, `classification_report.json`, `baseline_stats.json` y el modelo registrado. Al pulsar un PNG se previsualiza.
+- **Qué debe verse:** seis archivos: `baseline_stats.json`, `classification_report.json`, `confusion_matrix.png`, `feature_importance.json`, `pr_curve.png` y `roc_curve.png`. El modelo **no** aparece aquí: en MLflow 3 se guarda aparte y se ve en la versión del registro (pasos 6 y 7). Al pulsar un PNG se previsualiza (tarda uno o dos segundos): la matriz de confusión del run `04-rf` es *Matriz de confusión (umbral 0.22)* con **144, 32, 8 y 20**, es decir, 20 aciertos entre los 52 vinos marcados premium y 8 premium sin detectar.
 - **Qué decir:** `baseline_stats.json` es el que alimenta el detector de drift; `feature_importance.json` muestra que `alcohol` (0,26) y `sulphates` (0,13) son las variables que más pesan.
 - **Captura:** `docs/evidence/04_mlflow_05_artefactos.png`
 
@@ -97,10 +97,11 @@ Qué contiene el servidor [Cierto, medido en MLflow]:
 
 1. Dev A hace la demo completa con Dev B mirando y cronometra: **meta < 5 minutos**.
 2. Dev B la repite solo, sin ayuda, con este guion. Anotar el tiempo y cualquier paso donde dudó.
-3. Hacer las 7 capturas durante el segundo pase y guardarlas en `docs/evidence/` con los nombres indicados.
+3. Las 7 capturas ya están en `docs/evidence/04_mlflow_01…07.png`, generadas con Chrome headless contra el servidor local (MLflow 3.17.2); rehacerlas solo si cambia la UI o los datos.
 4. La demo está lista cuando Dev B la completa solo en menos de 5 minutos.
 
 | Pase | Quién | Tiempo | Notas |
 |---|---|---|---|
+| 0 | Dev A con asistente de IA | sin cronometrar | Los 7 pasos recorridos en la UI de MLflow 3.17.2 para comprobar que cada instrucción funciona; se corrigieron los pasos 2 a 5 (filtro combinado, orden por encabezado, barra de Compare y lista real de artefactos). |
 | 1 | Dev A | | |
 | 2 | Dev B | | |
