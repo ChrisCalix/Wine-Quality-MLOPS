@@ -1,0 +1,19 @@
+Verificación de H5.3 — Dev B — 2026-11-04
+Ejecutada desde el host sin activar .venv, con la API y MLflow en Docker Compose.
+
+$ docker compose ps
+NAME                          IMAGE                COMMAND                  SERVICE   CREATED          STATUS                    PORTS
+wine-quality-mlops-api-1      wine-api:local       "uvicorn api.main:ap…"   api       2 minutes ago    Up 2 minutes (healthy)    0.0.0.0:8000->8000/tcp, [::]:8000->8000/tcp
+wine-quality-mlops-mlflow-1   python:3.14.2-slim   "sh -c 'pip install …"   mlflow    14 minutes ago   Up 14 minutes (healthy)   0.0.0.0:5678->5000/tcp, [::]:5678->5000/tcp
+
+$ curl -sS -i http://localhost:8000/ready
+HTTP/1.1 200 OK
+{"status":"ready"}
+
+$ curl -sS -i http://localhost:8000/model-info
+HTTP/1.1 200 OK
+{"model_name":"wine-premium-classifier","model_version":"3","model_alias":"champion","run_id":"1b53b6863eaa44078daf41aa54df3055","loaded_at":"2026-11-04T06:05:06.094239Z","served_by":"c930ca02e5d3"}
+
+$ curl -sS -i -X POST http://localhost:8000/predict -H 'Content-Type: application/json' -d @docs/examples/red_wine.json
+HTTP/1.1 200 OK
+{"predictions":[{"premium":0,"probability_premium":0.0}],"model_name":"wine-premium-classifier","model_version":"3","model_alias":"champion","run_id":"1b53b6863eaa44078daf41aa54df3055","served_by":"c930ca02e5d3"}
