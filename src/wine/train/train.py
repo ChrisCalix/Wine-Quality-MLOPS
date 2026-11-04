@@ -24,6 +24,7 @@ import mlflow
 import mlflow.data
 import numpy as np
 import pandas as pd
+import skops.io
 from mlflow.models import infer_signature
 from sklearn.base import clone
 from sklearn.ensemble import HistGradientBoostingClassifier, RandomForestClassifier
@@ -133,6 +134,7 @@ def train_run(
     run_name: str | None = None,
     purpose: str = "candidate",
     threshold: float = 0.5,
+    extra_tags: dict[str, str] | None = None,
 ) -> dict[str, float]:
     """Entrena, evalúa y registra un run completo. Devuelve sus métricas."""
     if purpose not in PURPOSES:
@@ -169,6 +171,7 @@ def train_run(
                 "dataset_sha256_white": sha256_of(FILES["white"]),
                 "purpose": purpose,
                 "crispdm_phase": "modeling",
+                **(extra_tags or {}),
             }
         )
         mlflow.log_input(_dataset(train, "train"), context="training")
@@ -207,6 +210,9 @@ def train_run(
             name="model",
             signature=infer_signature(x_train, pipeline.predict(x_train)),
             input_example=x_train.head(5),
+            skops_trusted_types=skops.io.get_untrusted_types(
+                data=skops.io.dumps(pipeline)
+            ),
         )
     logger.info("%s: test_f1_premium=%.4f cv_f1_mean=%.4f", name, scores["f1_premium"], cv_mean)
     return metrics
