@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import numpy as np
 from fastapi.testclient import TestClient
@@ -39,7 +39,7 @@ def setup_function():
         model_version="1",
         model_alias="champion",
         run_id="test-run",
-        loaded_at=datetime.now(timezone.utc),
+        loaded_at=datetime.now(UTC),
     )
     loader.error = None
 

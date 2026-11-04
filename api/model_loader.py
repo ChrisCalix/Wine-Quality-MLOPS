@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import socket
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import mlflow
 from mlflow import MlflowClient
@@ -50,14 +50,14 @@ class ModelLoader:
             model_version=str(version.version),
             model_alias=alias,
             run_id=version.run_id,
-            loaded_at=datetime.now(timezone.utc),
+            loaded_at=datetime.now(UTC),
         )
         return self.loaded
 
     def try_load(self) -> None:
         try:
             self.load()
-        except Exception as exc:  # readiness debe responder 503, no tumbar el proceso
+        except Exception as exc:  # noqa: BLE001 - readiness debe responder 503, no tumbar el proceso
             self.loaded = None
             self.error = f"{type(exc).__name__}: {exc}"
 

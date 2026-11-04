@@ -1,0 +1,86 @@
+# CD en dos jobs, tras un CI en verde sobre main:
+#  1. publicar: en un runner de GitHub, construye la imagen, la prueba y la publica en
+#     ghcr.io con el SHA del commit (REQ-CICD-02).
+#  2. desplegar: en el runner autohospedado de esta Mac, que sí alcanza el clúster de
+#     Docker Desktop, actualiza el Deployment con scripts/deploy_local.sh.
+# Ver docs/CICD.md para registrar el runner.
+name: CD
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:   # publicar y desplegar a mano la imagen de main
+
+permissions:
+  contents: read
+
+env:
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+jobs:
+  publicar:
+    name: CD - publicar imagen
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write   # publicar en ghcr.io con el GITHUB_TOKEN (sin secretos)
+    steps:
+      - name: Descargar el código del commit que pasó el CI
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+
+      - name: Nombre de la imagen (ghcr.io exige minúsculas)
+        run: echo "IMAGEN=ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_ENV"
+
+      - name: Construir la imagen
+        run: >
+          docker build
+          --label org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+          --label org.opencontainers.image.revision=$SHA
+          -t $IMAGEN:$SHA -t $IMAGEN:latest .
+
+      - name: Probar la imagen antes de publicarla
+        # Sin servidor MLflow no hay modelo: el servicio debe estar vivo (/health 200)
+        # y declararse no listo (/ready 503).
+        run: |
+          docker run -d --name api -p 8000:8000 $IMAGEN:$SHA
+          curl --fail --retry 15 --retry-all-errors --retry-delay 1 http://localhost:8000/health
+          ready=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/ready)
+          if [ "$ready" != "503" ]; then
+            echo "::error::/ready debía responder 503 sin modelo y respondió $ready"
+            exit 1
+          fi
+
+      - name: Iniciar sesión en ghcr.io
+        uses: docker/login-action@v4
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publicar la imagen
+        run: docker push --all-tags $IMAGEN
+
+  desplegar:
+    name: CD - desplegar en el clúster local
+    needs: publicar
+    # El runner de la Mac (registrado con las etiquetas por defecto). Solo este job lo usa.
+    runs-on: [self-hosted, macOS, ARM64]
+    permissions:
+      contents: read
+    steps:
+      - name: Descargar el código del commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+
+      - name: Desplegar con scripts/deploy_local.sh
+        run: |
+          # El servicio del runner arranca con un PATH mínimo: kubectl y docker viven en /usr/local/bin.
+          export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+          export IMAGE="ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]'):$SHA"
+          scripts/deploy_local.sh "$SHA"

@@ -1,0 +1,71 @@
+# CI: cada cambio se verifica antes de aceptarse.
+# Pasos: lint, sin pickle/joblib, pruebas, gate de data drift y build de la imagen.
+# No necesita servidor MLflow: las pruebas usan modelos locales o simulados y la CLI de
+# drift omite el chi² cuando MLFLOW_TRACKING_URI no está definida. Ver docs/CICD.md.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: CI - lint, pruebas, drift y build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Descargar el código
+        uses: actions/checkout@v7
+
+      - name: Instalar Python
+        uses: actions/setup-python@v7
+        with:
+          python-version-file: .python-version
+          cache: pip
+          cache-dependency-path: |
+            requirements.txt
+            requirements-dev.txt
+
+      - name: Instalar dependencias
+        run: pip install -r requirements.txt -r requirements-dev.txt
+
+      - name: Lint (ruff)
+        run: ruff check src tests api
+
+      - name: Sin pickle ni joblib (REQ-MLF-01)
+        run: |
+          if grep -rn -E "pickle\.dump|joblib\.dump" --include="*.py" src api tests scripts; then
+            echo "::error::Los modelos pasan por MLflow, no por pickle ni joblib (REQ-MLF-01)"
+            exit 1
+          fi
+
+      - name: Pruebas (ETL, API, data drift y concept drift)
+        run: pytest -v
+
+      - name: Gate de drift - monitor_green debe dar VERDE (código 0)
+        env:
+          PYTHONPATH: src
+        run: python -m wine.drift.data --batch data/processed/monitor_green.csv
+
+      - name: Gate de drift - monitor_red_white debe dar ROJO (código 1)
+        env:
+          PYTHONPATH: src
+        run: |
+          set +e
+          python -m wine.drift.data --batch data/processed/monitor_red_white.csv
+          code=$?
+          if [ "$code" -ne 1 ]; then
+            echo "::error::monitor_red_white debía dar ROJO (código 1) y dio $code"
+            exit 1
+          fi
+
+      - name: Construir la imagen
+        run: docker build -t wine-api:ci .
