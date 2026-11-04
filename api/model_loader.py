@@ -19,6 +19,7 @@ class LoadedModel:
     model_alias: str
     run_id: str
     loaded_at: datetime
+    decision_threshold: float = 0.5
 
 
 class ModelLoader:
@@ -51,6 +52,7 @@ class ModelLoader:
             model_alias=alias,
             run_id=version.run_id,
             loaded_at=datetime.now(UTC),
+            decision_threshold=float(version.tags.get("decision_threshold", 0.5)),
         )
         return self.loaded
 
@@ -61,7 +63,7 @@ class ModelLoader:
             self.loaded = None
             self.error = f"{type(exc).__name__}: {exc}"
 
-    def metadata(self) -> dict[str, str]:
+    def metadata(self) -> dict[str, object]:
         if self.loaded is None:
             raise RuntimeError(self.error or "modelo no cargado")
         return {
@@ -70,6 +72,7 @@ class ModelLoader:
             "model_alias": self.loaded.model_alias,
             "run_id": self.loaded.run_id,
             "loaded_at": self.loaded.loaded_at.isoformat(),
+            "decision_threshold": self.loaded.decision_threshold,
             "served_by": os.getenv("POD_NAME", socket.gethostname()),
         }
 

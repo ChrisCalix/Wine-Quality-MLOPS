@@ -48,4 +48,5 @@ class ModelInfo(BaseModel):
     run_id: str
     loaded_at: datetime
     served_by: str
+    decision_threshold: float | None = None
 
