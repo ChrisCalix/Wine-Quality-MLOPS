@@ -105,8 +105,12 @@
       "drift": false
     }
   ],
-  "chi2": null,
-  "notes": [
-    "chi2 omitido: no se proporcionaron predicciones del modelo"
-  ]
+  "chi2": {
+    "statistic": 171.98925395865768,
+    "p_value": 2.7208713174911063e-39,
+    "batch_premium_rate": 0.52,
+    "reference_premium_rate": 0.1861198738170347,
+    "drift": true
+  },
+  "notes": []
 }

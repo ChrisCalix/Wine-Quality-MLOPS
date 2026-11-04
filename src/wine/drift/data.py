@@ -127,8 +127,8 @@ def check_batch(
     """Compara un lote contra el baseline y devuelve el estado VERDE/AMARILLO/ROJO.
 
     ``batch_pred`` y ``reference_pred`` son las clases premium predichas por el
-    modelo para el lote y para una referencia no vista en el entrenamiento; con
-    ambas se calcula el chi². Sin ellas, el chi² se omite y se anota en el reporte.
+    modelo para el lote y para el baseline; con ambas se calcula el chi². Sin
+    ellas, el chi² se omite y se anota en el reporte.
     """
     _check_features(batch_df, "lote")
     _check_features(baseline_df, "baseline")
@@ -186,8 +186,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--batch", type=Path, required=True, help="CSV del lote")
     parser.add_argument("--baseline", type=Path, default=PROCESSED_DIR / "train.csv")
     parser.add_argument(
-        "--reference", type=Path, default=PROCESSED_DIR / "test.csv",
-        help="CSV no visto en el entrenamiento, para la distribución de clase predicha",
+        "--reference", type=Path,
+        help="CSV cuya clase predicha sirve de referencia para el chi²; por defecto, el baseline",
     )
     parser.add_argument("--out", type=Path, help="ruta del reporte JSON")
     parser.add_argument(
@@ -205,7 +205,7 @@ def main(argv: list[str] | None = None) -> int:
         from wine.drift.predictor import load_predictor
 
         predict, threshold = load_predictor(model_uri)
-        reference = pd.read_csv(args.reference)
+        reference = baseline if args.reference is None else pd.read_csv(args.reference)
         batch_pred, reference_pred = predict(batch), predict(reference)
         logger.info("modelo %s (umbral %.2f)", model_uri, threshold)
 
