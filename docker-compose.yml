@@ -1,4 +1,15 @@
 services:
+  api:
+    build: .
+    image: wine-api:local
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:5000
+      MODEL_URI: models:/wine-premium-classifier@champion
+    ports:
+      - "8000:8000"
+    depends_on:
+      mlflow:
+        condition: service_healthy
   mlflow:
     image: python:3.14.2-slim
     working_dir: /workspace
@@ -11,6 +22,7 @@ services:
       --backend-store-uri sqlite:////mlflow_data/mlflow.db
       --artifacts-destination /mlflow_data/artifacts
       --host 0.0.0.0
+      --allowed-hosts localhost,127.0.0.1,mlflow,mlflow:5000
       --port 5000"
     ports:
       - "5678:5000"
@@ -20,6 +32,7 @@ services:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
       interval: 10s
       timeout: 5s
+      start_period: 10m
       retries: 12
 
 volumes:

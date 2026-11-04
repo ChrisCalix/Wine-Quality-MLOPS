@@ -18,3 +18,25 @@ La familia, los hiperparámetros y el umbral de decisión se eligen con la valid
 
 **¿Por qué importan los ~1.000 registros mínimos si solo se entrena con tintos?**
 La consigna pide al menos 1.000 registros. El dataset completo tiene 6.497 y el subconjunto de tintos tiene 1.599 (algo menos tras deduplicar **[Verificar]**), así que ambos cumplen.
+
+## Fase 4 — API y Model Registry
+
+**¿Cómo sabe la API qué modelo servir?**
+Lee `MODEL_URI` y carga el alias `champion` desde MLflow al arrancar; obtiene versión y `run_id` del registro.
+
+**¿Qué diferencia hay entre `/health` y `/ready`?**
+`/health` confirma que el proceso vive. `/ready` responde 200 solo cuando el modelo está cargado; de lo contrario devuelve 503.
+
+**¿Para qué sirve `served_by`?**
+Identifica el pod o contenedor que atendió la petición y permite demostrar el balanceo entre réplicas.
+
+## Fase 5 — Docker
+
+**¿Qué contiene la imagen de la API?**
+Python, dependencias fijadas, el código de `api/` y `src/wine/config.py`; el modelo se carga desde MLflow.
+
+**¿Por qué `depends_on` espera el healthcheck de MLflow?**
+La API necesita que el servidor responda antes de intentar resolver el alias `champion` y descargar el modelo.
+
+**¿Qué demuestra la prueba de Compose?**
+Que los contenedores responden `/ready` y `/predict` sin activar un entorno Python local, usando el modelo real versión 3.
