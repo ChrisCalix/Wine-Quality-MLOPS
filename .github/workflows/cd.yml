@@ -1,7 +1,9 @@
-# CD: si el CI pasó en main, se construye la imagen, se prueba y se publica en ghcr.io
-# con el SHA del commit (REQ-CICD-02). El despliegue en el clúster local de Docker
-# Desktop lo hace scripts/deploy_local.sh, porque un runner de GitHub no alcanza ese
-# clúster. Ver docs/CICD.md.
+# CD en dos jobs, tras un CI en verde sobre main:
+#  1. publicar: en un runner de GitHub, construye la imagen, la prueba y la publica en
+#     ghcr.io con el SHA del commit (REQ-CICD-02).
+#  2. desplegar: en el runner autohospedado de esta Mac, que sí alcanza el clúster de
+#     Docker Desktop, actualiza el Deployment con scripts/deploy_local.sh.
+# Ver docs/CICD.md para registrar el runner.
 name: CD
 
 on:
@@ -9,19 +11,22 @@ on:
     workflows: [CI]
     types: [completed]
     branches: [main]
-  workflow_dispatch:   # publicar a mano la imagen de main
+  workflow_dispatch:   # publicar y desplegar a mano la imagen de main
 
 permissions:
   contents: read
-  packages: write   # publicar en ghcr.io con el GITHUB_TOKEN (sin secretos)
+
+env:
+  SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
 
 jobs:
-  cd:
+  publicar:
     name: CD - publicar imagen
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
     runs-on: ubuntu-latest
-    env:
-      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    permissions:
+      contents: read
+      packages: write   # publicar en ghcr.io con el GITHUB_TOKEN (sin secretos)
     steps:
       - name: Descargar el código del commit que pasó el CI
         uses: actions/checkout@v7
@@ -60,16 +65,22 @@ jobs:
       - name: Publicar la imagen
         run: docker push --all-tags $IMAGEN
 
-      - name: Resumen
+  desplegar:
+    name: CD - desplegar en el clúster local
+    needs: publicar
+    # El runner de la Mac (registrado con las etiquetas por defecto). Solo este job lo usa.
+    runs-on: [self-hosted, macOS, ARM64]
+    permissions:
+      contents: read
+    steps:
+      - name: Descargar el código del commit
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.SHA }}
+
+      - name: Desplegar con scripts/deploy_local.sh
         run: |
-          {
-            echo "### Imagen publicada"
-            echo
-            echo "\`$IMAGEN:$SHA\`"
-            echo
-            echo "Para desplegarla en el clúster local, desde la raíz del repositorio:"
-            echo
-            echo "\`\`\`bash"
-            echo "scripts/deploy_local.sh $SHA"
-            echo "\`\`\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          # El servicio del runner arranca con un PATH mínimo: kubectl y docker viven en /usr/local/bin.
+          export PATH="/usr/local/bin:/opt/homebrew/bin:$PATH"
+          export IMAGE="ghcr.io/$(echo "$GITHUB_REPOSITORY" | tr '[:upper:]' '[:lower:]'):$SHA"
+          scripts/deploy_local.sh "$SHA"

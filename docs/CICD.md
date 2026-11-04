@@ -36,28 +36,54 @@ Referencia del curso: `examples/heladeria-ci-cd-ct/` (GitHub Actions). Esta pág
 
 ## CD: cómo se despliega en el clúster local (decidido)
 
-El clúster es el Kubernetes de Docker Desktop de una Mac y un runner de GitHub no lo alcanza. En lugar de registrar un runner autohospedado y dejarlo encendido, el CD se divide en dos mitades:
+El clúster es el Kubernetes de Docker Desktop de una Mac y un runner de GitHub no lo alcanza. Por eso el CD tiene dos jobs, y el segundo corre en un **runner autohospedado** en esa Mac:
 
-| Mitad | Dónde | Qué hace |
+| Job | Dónde corre | Qué hace |
 |---|---|---|
-| Publicar | GitHub Actions (`cd.yml`) | Tras un CI en verde sobre `main`: construye la imagen, la prueba (`/health` 200 y `/ready` 503 sin MLflow) y la publica en `ghcr.io/<repo en minúsculas>` con el SHA del commit y `latest` |
-| Desplegar | Tu Mac (`scripts/deploy_local.sh`) | `kubectl set image` en el Deployment `wine-api` (contenedor y initContainer), `rollout status` y comprobación de `/model-info`. Si el rollout falla, revierte solo |
+| `publicar` | Runner de GitHub (`ubuntu-latest`) | Tras un CI en verde sobre `main`: construye la imagen, la prueba (`/health` 200 y `/ready` 503 sin MLflow) y la publica en `ghcr.io/<repo en minúsculas>` con el SHA del commit y `latest` |
+| `desplegar` | Runner autohospedado en la Mac (`[self-hosted, macOS, ARM64]`) | Ejecuta `scripts/deploy_local.sh <SHA>`: `kubectl set image` en el Deployment `wine-api` (contenedor e initContainer), `rollout status` y comprobación de `/model-info`. Si el rollout falla, revierte solo |
+
+El script sigue sirviendo para desplegar a mano (`scripts/deploy_local.sh [SHA]`, o con `IMAGE=...` para una imagen local).
 
 Detalles que importan:
 
 - **Minúsculas:** `ghcr.io` rechaza nombres con mayúsculas y este repositorio es `ChrisCalix/Wine-Quality-MLOPS`, así que el workflow y el script lo convierten con `tr`.
 - **`workflow_run`:** el CD reacciona a que el CI termine en `main` (un push humano). Esto evita el problema del ejemplo: un workflow lanzado con el `GITHUB_TOKEN` no dispara a otros.
-- **Paquete público:** para que los nodos descarguen la imagen sin credenciales, hay que poner el paquete en **público** una sola vez (GitHub, Packages, Package settings, Visibility). Si se prefiere privado, haría falta un `imagePullSecret`.
+- **Paquete público:** para que los nodos descarguen la imagen sin credenciales, hay que poner el paquete en **público** una sola vez, después de la primera publicación (perfil, Packages, el paquete, *Package settings*, *Change visibility*).
+- **`PATH` del servicio:** el runner arranca con un `PATH` mínimo, así que el job añade `/usr/local/bin`, donde están `kubectl` y `docker`.
 - **Probado en local** contra el clúster real: despliegue correcto con rolling update sin cortes, y despliegue con una imagen inexistente, que revierte y deja el servicio respondiendo.
 
-Uso:
+### Seguridad del runner
 
-```bash
-git pull                                  # traer el commit de main que pasó el CI
-scripts/deploy_local.sh                   # despliega ghcr.io/<repo>:<SHA del HEAD>
-scripts/deploy_local.sh <sha>             # o un commit concreto
-IMAGE=wine-api:local scripts/deploy_local.sh   # o una imagen local, sin GitHub
-```
+Un runner autohospedado ejecuta código del repositorio en tu Mac, y este repositorio es público. Por eso:
+
+- El CI (que sí corre en pull requests) usa `ubuntu-latest`, nunca el runner de la Mac.
+- Solo el job `desplegar` usa el runner, y solo se dispara por un CI terminado en `main` o por `workflow_dispatch`, que únicamente pueden lanzar personas con permiso de escritura.
+- Ningún job de GitHub cae en la Mac por accidente: solo los que piden explícitamente `self-hosted`, y hoy es únicamente `desplegar`.
+- Si se quiere más seguridad: *Settings, Actions, General, Fork pull request workflows*, exigir aprobación para colaboradores externos.
+
+### Registrar el runner (una vez)
+
+1. En GitHub: repositorio, *Settings*, *Actions*, *Runners*, *New self-hosted runner*; elegir **macOS** y **ARM64**. La página muestra los comandos exactos de descarga y el token de registro (caduca en una hora); no se guarda en el repositorio.
+2. En la Mac, en una carpeta **fuera del repositorio**, ejecutar los comandos de descarga que muestra GitHub y registrar el runner (Enter en las preguntas: grupo, nombre, etiquetas y carpeta de trabajo por defecto):
+
+   ```bash
+   mkdir ~/actions-runner && cd ~/actions-runner
+   # ...descargar y descomprimir según indica GitHub...
+   ./config.sh --url https://github.com/ChrisCalix/Wine-Quality-MLOPS --token <TOKEN>
+   ```
+
+3. Dejarlo encendido: en primer plano con `./run.sh`, o como servicio de macOS que arranca solo:
+
+   ```bash
+   ./svc.sh install
+   ./svc.sh start
+   ./svc.sh status
+   ```
+
+4. Comprobar en *Settings, Actions, Runners* que aparece como **Idle**.
+
+Si el runner está apagado cuando termina el CI, el job `desplegar` queda esperando; la imagen ya está publicada y se puede desplegar a mano con el script.
 
 ## Cómo se ejecuta cada paso en local
 
