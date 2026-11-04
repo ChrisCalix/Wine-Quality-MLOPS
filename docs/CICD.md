@@ -43,7 +43,7 @@ El clúster es el Kubernetes de Docker Desktop de una Mac y un runner de GitHub 
 | `publicar` | Runner de GitHub (`ubuntu-latest`) | Tras un CI en verde sobre `main`: construye la imagen, la prueba (`/health` 200 y `/ready` 503 sin MLflow) y la publica en `ghcr.io/<repo en minúsculas>` con el SHA del commit y `latest` |
 | `desplegar` | Runner autohospedado en la Mac (`[self-hosted, macOS, ARM64]`) | Ejecuta `scripts/deploy_local.sh <SHA>`: `kubectl set image` en el Deployment `wine-api` (contenedor e initContainer), `rollout status` y comprobación de `/model-info`. Si el rollout falla, revierte solo |
 
-El script sigue sirviendo para desplegar a mano (`scripts/deploy_local.sh [SHA]`, o con `IMAGE=...` para una imagen local).
+El script sigue sirviendo para desplegar a mano (`scripts/deploy_local.sh [SHA]`, o con `IMAGE=...` para una imagen local). Con `COMPONENT=ui` actualiza el Deployment de la UI (`wine-ui`); hoy el CD solo publica la imagen de la API y la de la UI se construye en local (`docker build -t wine-ui:local ui/`), mientras que el CI sí comprueba que ambas imágenes construyen.
 
 Detalles que importan:
 

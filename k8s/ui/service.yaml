@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: wine-ui
+  namespace: wine-mlops
+  labels:
+    app: wine-ui
+spec:
+  # LoadBalancer por la misma razón que wine-api (docs/K8S_DEMO.md): Docker Desktop lo publica
+  # en localhost; un NodePort no se alcanza desde macOS. La UI queda en http://localhost:8081.
+  type: LoadBalancer
+  selector:
+    app: wine-ui
+  ports:
+    - name: http
+      port: 8081
+      targetPort: http

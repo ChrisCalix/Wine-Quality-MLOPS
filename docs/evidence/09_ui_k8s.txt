@@ -1,0 +1,35 @@
+# Evidencia de la UI en Kubernetes (T9.9): la UI llama al Service de la API
+# Generado el 2026-11-04 17:09:50 contra el clúster docker-desktop
+
+$ kubectl -n wine-mlops get deploy,svc,pods -l "app in (wine-ui,wine-api)"
+NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+deployment.apps/wine-ui   2/2     2            2           2m16s
+
+NAME              TYPE           CLUSTER-IP     EXTERNAL-IP   PORT(S)          AGE
+service/wine-ui   LoadBalancer   10.96.37.100   172.22.0.7    8081:30198/TCP   2m15s
+
+NAME                           READY   STATUS    RESTARTS   AGE
+pod/wine-api-c95f898f9-f5mgd   1/1     Running   0          24m
+pod/wine-api-c95f898f9-tl68m   1/1     Running   0          23m
+pod/wine-ui-55d9647577-cj9v5   0/1     Running   0          2s
+pod/wine-ui-55d9647577-ttgfm   1/1     Running   0          4s
+pod/wine-ui-6cbd5d78d4-zh9lw   1/1     Running   0          71s
+
+$ kubectl -n wine-mlops exec deploy/wine-ui -- grep -E "resolver|api_upstream" /etc/nginx/conf.d/default.conf
+resolver kube-dns.kube-system.svc.cluster.local valid=10s ipv6=off;
+        set $api_upstream http://wine-api.wine-mlops.svc.cluster.local:8080;
+        proxy_pass $api_upstream;
+
+$ grep -rn localhost ui/js ui/index.html     # el código de la UI no menciona localhost
+(sin coincidencias)
+
+$ kubectl -n wine-mlops exec deploy/wine-ui -- wget -qO- http://wine-api.wine-mlops.svc.cluster.local:8080/health
+{"status":"ok"}
+
+$ for i in 1..6: curl -s -X POST http://localhost:8081/api/predict ...   # la UI en :8081 reenvía a la API
+   wine-premium-classifier v3 {'premium': 0, 'probability_premium': 0.0043617041571088035} | served_by wine-api-c95f898f9-tl68m
+   wine-premium-classifier v3 {'premium': 0, 'probability_premium': 0.0043617041571088035} | served_by wine-api-c95f898f9-tl68m
+   wine-premium-classifier v3 {'premium': 0, 'probability_premium': 0.0043617041571088035} | served_by wine-api-c95f898f9-f5mgd
+   wine-premium-classifier v3 {'premium': 0, 'probability_premium': 0.0043617041571088035} | served_by wine-api-c95f898f9-tl68m
+   wine-premium-classifier v3 {'premium': 0, 'probability_premium': 0.0043617041571088035} | served_by wine-api-c95f898f9-f5mgd
+   wine-premium-classifier v3 {'premium': 0, 'probability_premium': 0.0043617041571088035} | served_by wine-api-c95f898f9-f5mgd
