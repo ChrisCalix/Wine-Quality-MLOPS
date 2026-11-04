@@ -33,6 +33,23 @@ def served_by() -> str:
     return os.getenv("POD_NAME", socket.gethostname())
 
 
+def score(model: object, frame: pd.DataFrame, threshold: float) -> tuple[np.ndarray, np.ndarray]:
+    """Clase y probabilidad premium de cada fila.
+
+    El modelo registrado devuelve ``[P(no premium), P(premium)]``; la clase sale de
+    comparar ``P(premium)`` con el umbral de la versión (tag ``decision_threshold``).
+    Un modelo que devuelve la clase directamente (modelo de desarrollo) conserva su salida.
+    """
+    raw = np.asarray(model.predict(frame))
+    if raw.ndim == 2 and raw.shape[1] == 2:
+        probabilities = raw[:, 1].astype(float)
+        return (probabilities >= threshold).astype(int), probabilities
+    labels = raw.reshape(len(frame), -1)[:, 0].astype(int)
+    if hasattr(model, "predict_proba"):
+        return labels, np.asarray(model.predict_proba(frame))[:, 1].astype(float)
+    return labels, labels.astype(float)
+
+
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
@@ -62,17 +79,11 @@ def predict(request: PredictRequest) -> PredictResponse:
 
     frame = pd.DataFrame([record.model_dump() for record in request.records])
     frame = frame.loc[:, list(FEATURES)].astype(float)
-    model = loader.loaded.model
-    predictions = model.predict(frame)
-    probabilities = None
-    if hasattr(model, "predict_proba"):
-        probabilities = model.predict_proba(frame)[:, 1]
-
-    output: list[Prediction] = []
-    for index, value in enumerate(predictions):
-        premium = int(np.asarray(value).reshape(-1)[0])
-        probability = float(probabilities[index]) if probabilities is not None else float(premium)
-        output.append(Prediction(premium=premium, probability_premium=probability))
+    labels, probabilities = score(loader.loaded.model, frame, loader.loaded.decision_threshold)
+    output = [
+        Prediction(premium=int(label), probability_premium=float(probability))
+        for label, probability in zip(labels, probabilities, strict=True)
+    ]
 
     metadata = loader.metadata()
     return PredictResponse(predictions=output, **{k: metadata[k] for k in (
