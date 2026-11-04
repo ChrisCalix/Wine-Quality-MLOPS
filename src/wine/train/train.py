@@ -78,17 +78,39 @@ def load_split(name: str, directory: Path = PROCESSED_DIR) -> pd.DataFrame:
     return pd.read_csv(directory / f"{name}.csv")
 
 
-def cross_validate(
-    pipeline: Pipeline, x: pd.DataFrame, y: pd.Series, threshold: float
-) -> tuple[float, float]:
-    """F1 de la clase premium por fold (CV estratificada); devuelve media y desviación."""
+def cv_probabilities(
+    pipeline: Pipeline, x: pd.DataFrame, y: pd.Series
+) -> tuple[np.ndarray, list[np.ndarray]]:
+    """Probabilidad premium fuera de fold (CV estratificada) y los índices de cada fold."""
     folds = StratifiedKFold(n_splits=CV_FOLDS, shuffle=True, random_state=SEED)
-    scores = []
+    oof = np.zeros(len(y))
+    val_indices = []
     for train_idx, val_idx in folds.split(x, y):
         model = clone(pipeline).fit(x.iloc[train_idx], y.iloc[train_idx])
-        proba = model.predict_proba(x.iloc[val_idx])[:, 1]
-        scores.append(compute_metrics(y.iloc[val_idx].to_numpy(), proba, threshold)["f1_premium"])
+        oof[val_idx] = model.predict_proba(x.iloc[val_idx])[:, 1]
+        val_indices.append(val_idx)
+    return oof, val_indices
+
+
+def cv_f1(
+    y: pd.Series, oof: np.ndarray, val_indices: list[np.ndarray], threshold: float
+) -> tuple[float, float]:
+    """Media y desviación del F1 premium por fold con el umbral dado."""
+    scores = [
+        compute_metrics(y.iloc[idx].to_numpy(), oof[idx], threshold)["f1_premium"]
+        for idx in val_indices
+    ]
     return float(np.mean(scores)), float(np.std(scores))
+
+
+def tune_threshold(y: pd.Series, oof: np.ndarray) -> float:
+    """Umbral que maximiza el F1 premium sobre las predicciones fuera de fold.
+
+    Usa solo ``train``; ``test`` no interviene (crispdm.md §4-§5).
+    """
+    grid = [round(float(t), 2) for t in np.arange(0.05, 0.96, 0.01)]
+    f1s = [compute_metrics(y.to_numpy(), oof, t)["f1_premium"] for t in grid]
+    return grid[int(np.argmax(f1s))]
 
 
 def baseline_stats(train: pd.DataFrame) -> dict[str, Any]:
@@ -134,6 +156,7 @@ def train_run(
     run_name: str | None = None,
     purpose: str = "candidate",
     threshold: float = 0.5,
+    tune: bool = False,
     extra_tags: dict[str, str] | None = None,
 ) -> dict[str, float]:
     """Entrena, evalúa y registra un run completo. Devuelve sus métricas."""
@@ -144,6 +167,9 @@ def train_run(
     x_train, y_train = train[list(FEATURES)], train[TARGET]
     x_test, y_test = test[list(FEATURES)], test[TARGET]
     pipeline = build_pipeline(family, params)
+    oof, val_indices = cv_probabilities(pipeline, x_train, y_train)
+    if tune:
+        threshold = tune_threshold(y_train, oof)
 
     mlflow.set_experiment(EXPERIMENT_NAME)
     name = run_name or f"{family}-{purpose}"
@@ -157,6 +183,7 @@ def train_run(
                 "test_size": len(test),
                 "cv_folds": CV_FOLDS,
                 "decision_threshold": threshold,
+                "threshold_source": "cv_oof" if tune else "fixed",
                 "class_weight": params.get("class_weight"),
                 "n_features": len(FEATURES),
             }
@@ -166,6 +193,7 @@ def train_run(
                 "project": "wine-mlops",
                 "owner": os.environ.get("WINE_OWNER") or _git("config", "user.name"),
                 "git_commit": _git("rev-parse", "HEAD"),
+                "git_dirty": str(bool(_git("status", "--porcelain"))).lower(),
                 "dataset_version": "uci-186",
                 "dataset_sha256_red": sha256_of(FILES["red"]),
                 "dataset_sha256_white": sha256_of(FILES["white"]),
@@ -177,7 +205,7 @@ def train_run(
         mlflow.log_input(_dataset(train, "train"), context="training")
         mlflow.log_input(_dataset(test, "test"), context="testing")
 
-        cv_mean, cv_std = cross_validate(pipeline, x_train, y_train, threshold)
+        cv_mean, cv_std = cv_f1(y_train, oof, val_indices, threshold)
         started = time.perf_counter()
         pipeline.fit(x_train, y_train)
         train_time = time.perf_counter() - started
@@ -210,6 +238,7 @@ def train_run(
             name="model",
             signature=infer_signature(x_train, pipeline.predict(x_train)),
             input_example=x_train.head(5),
+            pyfunc_predict_fn="predict_proba",
             skops_trusted_types=skops.io.get_untrusted_types(
                 data=skops.io.dumps(pipeline)
             ),
@@ -226,8 +255,14 @@ def main() -> None:
     parser.add_argument("--run-name")
     parser.add_argument("--purpose", default="candidate", choices=PURPOSES)
     parser.add_argument("--threshold", type=float, default=0.5)
+    parser.add_argument(
+        "--tune-threshold", action="store_true",
+        help="elige el umbral con las predicciones fuera de fold de train",
+    )
     args = parser.parse_args()
-    train_run(args.family, json.loads(args.params), args.run_name, args.purpose, args.threshold)
+    train_run(args.family, json.loads(args.params), args.run_name, args.purpose,
+        args.threshold, args.tune_threshold,
+    )
 
 
 if __name__ == "__main__":
