@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 import socket
-import asyncio
 from contextlib import asynccontextmanager
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from fastapi import FastAPI, HTTPException, status
 
 from api.model_loader import ModelLoader
-from api.schemas import ModelInfo, PredictRequest, PredictResponse, Prediction
+from api.schemas import ModelInfo, Prediction, PredictRequest, PredictResponse
 from src.wine.config import FEATURES
 
 loader = ModelLoader()
