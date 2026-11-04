@@ -51,5 +51,27 @@ Sigue habiendo ≥ 2 pods para demostrar balanceo y autorreparación.
 - `preStop: sleep 5` y `terminationGracePeriodSeconds: 30` dan tiempo a retirar
   el pod de los endpoints antes de cerrarlo (autorreparación sin errores).
 
-El HPA se define en la Fase 7 después de comparar el ejemplo de autoescalado
-del curso (G7).
+## Autoescalado (Fase 7, gate G7)
+
+El curso no entregó ejemplo de autoescalado (`examples/kubernetes/07-intrgation/03-hpa.yaml`
+está vacío), así que G7 se resolvió con las prácticas estándar de Kubernetes:
+
+- `autoscaling/v2` con `scaleTargetRef` al Deployment y métrica `Resource` de CPU
+  en `Utilization` 60 %. El porcentaje se mide sobre `requests.cpu` (100m), por
+  eso los requests son obligatorios para que el cálculo sea válido.
+- `minReplicas: 2` (REQ-K8S-02) y `maxReplicas: 6`, por la memoria disponible.
+- `behavior.scaleUp`: máximo +2 pods cada 30 s, porque cada pod carga el modelo
+  y un salto brusco agota la memoria. `behavior.scaleDown`: ventana de
+  estabilización de 60 s y -1 pod cada 30 s para no oscilar.
+- metrics-server v0.9.0 en `k8s/metrics-server/` con `--kubelet-insecure-tls`
+  (kubelets de kind con certificado autofirmado). Se aplica antes que el HPA.
+- La carga es un Job (`k8s/load-test/`) que llama al Service por su DNS interno,
+  así el tráfico pasa por kube-proxy y se reparte entre pods.
+- Los manifiestos de `metrics-server/` y `load-test/` están en subcarpetas para
+  que `kubectl apply -f k8s/` no lance la carga ni reinstale metrics-server.
+
+Con el HPA activo, `kubectl scale` manual deja de ser estable: el HPA reajusta
+las réplicas hacia lo que pide la métrica. Las pruebas de la Fase 6
+(`scripts/demo_k8s.sh`) se ejecutan sin HPA; se borra con
+`kubectl -n wine-mlops delete hpa wine-api`.
+

@@ -58,3 +58,20 @@ El ReplicaSet crea otro para volver al estado deseado. Sin fallos gracias a la r
 **¿Por qué solo 2 réplicas y no más?**
 Cada réplica carga el modelo en memoria y Docker Desktop tiene 6 GB. Con 4 GB el plano de control de kind se reiniciaba. Dos réplicas bastan para demostrar balanceo y autorreparación; el escalado manual llega a 4 y el HPA llegará a 6.
 
+## Fase 7 — Autoescalado (HPA)
+
+**¿Cómo decide el HPA cuántos pods crear?**
+Compara la CPU media de los pods con el objetivo (60 % de `requests.cpu`, o sea ~60 m por pod) y calcula réplicas = ceil(réplicas actuales × uso actual / objetivo), acotado entre `minReplicas` 2 y `maxReplicas` 6. En la prueba, con la CPU en 340 % pidió subir de 2 a 4 y luego a 6.
+
+**¿Por qué hacen falta `requests` de CPU y metrics-server?**
+El porcentaje se calcula sobre el request: sin él el HPA no puede medir ("unknown"). metrics-server es quien publica el uso de CPU de cada pod en la Metrics API; en Docker Desktop requirió `--kubelet-insecure-tls` por los certificados autofirmados.
+
+**¿Por qué la subida es rápida y la bajada lenta?**
+`scaleUp` agrega hasta 2 pods cada 30 s (cada pod carga el modelo en memoria). `scaleDown` espera una ventana de estabilización de 60 s y baja 1 pod cada 30 s, para no oscilar si la carga es intermitente. En la evidencia pasó de 6 a 2 pods en unos 2 minutos tras terminar la carga.
+
+**¿Qué demuestra la prueba de carga?**
+Un Job de dos pods con 8 hilos cada uno llamó 240 s al Service por su DNS interno: 3.858 peticiones sin ninguna fallida. Las réplicas subieron de 2 a 6 en unos 2 minutos y volvieron a 2 en unos 7 minutos totales (`docs/evidence/07_hpa.txt`).
+
+**¿Qué pasa con el escalado manual si hay HPA?**
+El HPA reajusta las réplicas según la métrica y sobrescribe `kubectl scale`. Por eso las pruebas manuales de la Fase 6 se hacen sin HPA.
+
